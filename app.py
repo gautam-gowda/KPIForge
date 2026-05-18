@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
 from functools import wraps
+import os 
 import csv
 import io
 import time
@@ -26,6 +27,15 @@ app.secret_key = os.environ.get(
     "SECRET_KEY",
     "kpiforge_secret"
 )
+
+app.config["SESSION_PERMANENT"] = True
+
+app.config["SESSION_COOKIE_SECURE"] = True
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
 
 app.config["SESSION_PERMANENT"]         = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
