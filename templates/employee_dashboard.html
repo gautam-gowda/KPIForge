@@ -173,11 +173,58 @@
             color: #94a3b8;
         }
 
+        /* ── Create KPI Goal form — overlap fix ── */
+        .goal-form-row1 {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .goal-form-row1 label {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: bold;
+            margin-bottom: 3px;
+            display: block;
+        }
+
+        .goal-form-row2 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr) auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .goal-form-row2 .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .goal-form-row2 label {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: bold;
+            margin-bottom: 3px;
+            display: block;
+        }
+
+        .goal-form-row2 .btn-wrap {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .goal-form-row2 .btn-wrap .btn {
+            width: 100%;
+            padding: 12px 16px;
+            white-space: nowrap;
+        }
+
     </style>
 
 </head>
 
-<!-- ★ LIVE UPDATE: data-role added -->
 <body data-role="employee">
 
 <div class="navbar d-flex justify-content-between align-items-center">
@@ -286,23 +333,25 @@
 
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
-                <div class="row g-3 mb-3">
-
-                    <div class="col-md-4">
+                <!-- Row 1: Title + Description -->
+                <div class="goal-form-row1">
+                    <div>
+                        <label>Goal Title</label>
                         <input type="text" name="title" placeholder="Goal Title" required>
                     </div>
-
-                    <div class="col-md-8">
-                        <textarea name="description" placeholder="Goal Description — be specific and measurable" required></textarea>
+                    <div>
+                        <label>Description</label>
+                        <textarea name="description" placeholder="Goal Description — be specific and measurable" required style="min-height:44px; resize:none;"></textarea>
                     </div>
-
                 </div>
 
-                <div class="row g-3 mb-3">
+                <!-- Row 2: Thrust | Quarter | UoM | Target | Weightage | Button -->
+                <div class="goal-form-row2">
 
-                    <div class="col-md-2">
+                    <div class="field-group">
+                        <label>Thrust Area</label>
                         <select name="thrust_area" required>
-                            <option value="">Thrust Area</option>
+                            <option value="">Select</option>
                             <option>Innovation</option>
                             <option>Revenue</option>
                             <option>Operations</option>
@@ -312,9 +361,10 @@
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="field-group">
+                        <label>Quarter</label>
                         <select name="quarter" required>
-                            <option value="">Quarter</option>
+                            <option value="">Select</option>
                             <option>Q1</option>
                             <option>Q2</option>
                             <option>Q3</option>
@@ -323,39 +373,43 @@
                         </select>
                     </div>
 
-                    <div class="col-md-2">
+                    <div class="field-group">
+                        <label>Unit of Measure</label>
                         <select name="uom_type" id="uomSelect" required onchange="toggleTargetField()">
-                            <option value="">Unit of Measure</option>
+                            <option value="">Select UoM</option>
                             <optgroup label="Numeric">
-                                <option value="Numeric-Min">Numeric — Higher is Better (e.g. Revenue)</option>
-                                <option value="Numeric-Max">Numeric — Lower is Better (e.g. Cost, TAT)</option>
+                                <option value="Numeric-Min">Numeric — Higher is Better</option>
+                                <option value="Numeric-Max">Numeric — Lower is Better</option>
                             </optgroup>
                             <optgroup label="Percentage">
                                 <option value="Percentage-Min">% — Higher is Better</option>
                                 <option value="Percentage-Max">% — Lower is Better</option>
                             </optgroup>
                             <option value="Timeline">Timeline (Date-based)</option>
-                            <option value="Zero">Zero-based (e.g. Safety Incidents)</option>
+                            <option value="Zero">Zero-based</option>
                         </select>
                         <div class="uom-hint" id="uomHint"></div>
                     </div>
 
-                    <div class="col-md-2" id="targetNumericDiv">
-                        <input type="number" step="0.01" name="target_value" placeholder="Target Value">
+                    <div class="field-group" id="targetNumericDiv">
+                        <label>Target Value</label>
+                        <input type="number" step="0.01" name="target_value" placeholder="Enter target">
                     </div>
 
-                    <div class="col-md-2" id="targetDateDiv" style="display:none;">
-                        <input type="date" name="target_date" placeholder="Target Date">
+                    <div class="field-group" id="targetDateDiv" style="display:none;">
+                        <label>Target Date</label>
+                        <input type="date" name="target_date">
                         <div class="uom-hint">Deadline for completion</div>
                     </div>
 
-                    <div class="col-md-2">
-                        <input type="number" name="weightage" placeholder="Weightage %" min="10" max="100" required>
+                    <div class="field-group">
+                        <label>Weightage %</label>
+                        <input type="number" name="weightage" placeholder="e.g. 20" min="10" max="100" required>
                         <div class="uom-hint">Min 10%, total must = 100%</div>
                     </div>
 
-                    <div class="col-md-2">
-                        <button class="btn btn-primary w-100 h-100">Add Goal</button>
+                    <div class="btn-wrap">
+                        <button type="submit" class="btn btn-primary">Add Goal</button>
                     </div>
 
                 </div>
@@ -596,7 +650,7 @@
 <script>
 // Toggle target field between numeric and date based on UoM selection
 function toggleTargetField() {
-    const uom = document.getElementById('uomSelect').value;
+    const uom     = document.getElementById('uomSelect').value;
     const numDiv  = document.getElementById('targetNumericDiv');
     const dateDiv = document.getElementById('targetDateDiv');
     const hint    = document.getElementById('uomHint');
@@ -614,11 +668,13 @@ function toggleTargetField() {
 
     if (uom === 'Timeline') {
         numDiv.style.display  = 'none';
-        dateDiv.style.display = 'block';
+        dateDiv.style.display = 'flex';
+        dateDiv.style.flexDirection = 'column';
         numDiv.querySelector('input').removeAttribute('required');
         dateDiv.querySelector('input').setAttribute('required', 'required');
     } else {
-        numDiv.style.display  = 'block';
+        numDiv.style.display  = 'flex';
+        numDiv.style.flexDirection = 'column';
         dateDiv.style.display = 'none';
         numDiv.querySelector('input').setAttribute('required', 'required');
         dateDiv.querySelector('input').removeAttribute('required');

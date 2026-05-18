@@ -10,8 +10,8 @@
     <style>
 
         body {
-            background: linear-gradient(to bottom right, #020617, #0f172a);
-            color: white;
+            background: linear-gradient(135deg, #0a0a0f 0%, #12101a 50%, #0e0c16 100%);
+            color: #e2d9f3;
             font-family: Arial;
             min-height: 100vh;
         }
@@ -19,18 +19,19 @@
         .dashboard-container { padding: 35px; }
 
         .card-box {
-            background: #1e293b;
+            background: #1a1625;
             padding: 30px;
             border-radius: 22px;
             margin-bottom: 30px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+            border: 1px solid #2d2440;
             transition: 0.3s ease;
-            backdrop-filter: blur(10px);
         }
 
         .card-box:hover {
             transform: translateY(-5px);
-            box-shadow: 0 14px 32px rgba(59,130,246,0.18);
+            box-shadow: 0 14px 32px rgba(109,40,217,0.22);
+            border-color: #4c1d95;
         }
 
         .analytics-card { text-align: center; }
@@ -49,26 +50,28 @@
         }
 
         .employee-pill {
-            background: #334155;
+            background: #2d2440;
             padding: 10px 18px;
             border-radius: 20px;
             margin-right: 10px;
             display: inline-block;
-            color: white;
+            color: #c4b5fd;
             text-decoration: none;
             transition: 0.25s ease;
             font-weight: bold;
+            border: 1px solid #3d2d60;
         }
 
         .employee-pill:hover,
-        .employee-pill.active { background: #2563eb; color: white; }
-
-        table {
-            border-radius: 18px;
-            overflow: hidden;
+        .employee-pill.active {
+            background: #6d28d9;
+            color: white;
+            border-color: #7c3aed;
         }
 
-        .table-hover tbody tr:hover { background: #334155; }
+        table { border-radius: 18px; overflow: hidden; }
+
+        .table-hover tbody tr:hover { background: #2d2440 !important; }
 
         .approved-row  { border-left: 5px solid #22c55e; }
         .pending-row   { border-left: 5px solid #facc15; }
@@ -78,7 +81,7 @@
         .dimmed-row    { opacity: 0.55; filter: grayscale(25%); }
 
         .priority-badge {
-            background: red;
+            background: #7c3aed;
             color: white;
             padding: 5px 12px;
             border-radius: 20px;
@@ -89,47 +92,57 @@
         }
 
         .shared-badge {
-            background: #9333ea;
-            color: white;
+            background: #5b21b6;
+            color: #ddd6fe;
             padding: 5px 12px;
             border-radius: 20px;
             font-size: 11px;
             display: inline-block;
             margin-top: 8px;
             font-weight: bold;
+            border: 1px solid #7c3aed;
         }
 
         .audit-box {
-            background: #020617;
-            border: 1px solid #334155;
+            background: #0a0a0f;
+            border: 1px solid #2d2440;
             border-radius: 14px;
             padding: 12px;
             font-size: 12px;
             max-width: 220px;
             max-height: 90px;
             overflow: auto;
+            color: #a78bfa;
         }
 
         .review-box {
-            background: #020617;
-            border: 1px solid #334155;
+            background: #0a0a0f;
+            border: 1px solid #2d2440;
             border-radius: 14px;
             padding: 12px;
             min-width: 160px;
         }
 
         input, textarea, select {
-            background: #334155 !important;
-            border: none !important;
-            color: white !important;
+            background: #2d2440 !important;
+            border: 1px solid #3d2d60 !important;
+            color: #e2d9f3 !important;
             border-radius: 12px !important;
             padding: 10px !important;
+            width: 100%;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none !important;
+            border-color: #7c3aed !important;
+            box-shadow: 0 0 0 2px rgba(109,40,217,0.25) !important;
         }
 
         input[type="date"] { color-scheme: dark; }
 
         textarea { min-height: 80px; }
-        select option { background: #1e293b; }
+
+        select option { background: #1a1625; color: #e2d9f3; }
 
         .btn {
             border-radius: 12px;
@@ -138,6 +151,44 @@
         }
 
         .btn:hover { transform: scale(1.03); }
+
+        .btn-primary {
+            background: #6d28d9 !important;
+            border-color: #7c3aed !important;
+            color: white !important;
+        }
+        .btn-primary:hover { background: #7c3aed !important; }
+
+        .btn-success {
+            background: #166534 !important;
+            border-color: #22c55e !important;
+            color: #bbf7d0 !important;
+        }
+
+        .btn-danger {
+            background: #7f1d1d !important;
+            border-color: #ef4444 !important;
+            color: #fecaca !important;
+        }
+
+        .btn-warning {
+            background: #92400e !important;
+            border-color: #f59e0b !important;
+            color: #fef3c7 !important;
+        }
+
+        .btn-info {
+            background: #1e3a5f !important;
+            border-color: #38bdf8 !important;
+            color: #bae6fd !important;
+        }
+
+        .btn-outline-danger {
+            background: transparent !important;
+            border: 1px solid #ef4444 !important;
+            color: #fca5a5 !important;
+        }
+        .btn-outline-danger:hover { background: #7f1d1d !important; }
 
         .action-box {
             display: flex;
@@ -154,13 +205,13 @@
             display: inline-block;
         }
 
-        .verified   { background: #16a34a; }
-        .awaiting   { background: #facc15; color: black; }
-        .completed  { background: #2563eb; }
-        .ontrack    { background: #0891b2; }
-        .rework     { background: #f97316; }
+        .verified  { background: #14532d; color: #bbf7d0; }
+        .awaiting  { background: #713f12; color: #fef08a; }
+        .completed { background: #1e3a5f; color: #bae6fd; }
+        .ontrack   { background: #164e63; color: #a5f3fc; }
+        .rework    { background: #7c2d12; color: #fed7aa; }
 
-        .completion-card { border-left: 5px solid #3b82f6; }
+        .completion-card { border-left: 5px solid #7c3aed; }
 
         .window-badge {
             padding: 6px 16px;
@@ -170,15 +221,11 @@
             display: inline-block;
         }
 
-        .window-badge.goal-setting { background: #16a34a; }
-        .window-badge.checkin      { background: #d97706; }
-        .window-badge.annual       { background: #7c3aed; }
+        .window-badge.goal-setting { background: #14532d; color: #bbf7d0; }
+        .window-badge.checkin      { background: #78350f; color: #fde68a; }
+        .window-badge.annual       { background: #4c1d95; color: #ddd6fe; }
 
-        .uom-hint {
-            font-size: 11px;
-            color: #94a3b8;
-            margin-top: 3px;
-        }
+        .uom-hint { font-size: 11px; color: #8b5cf6; margin-top: 3px; }
 
         .live-dot {
             display: inline-block;
@@ -196,17 +243,81 @@
             100% { opacity: 1; }
         }
 
-        footer {
-            text-align: center;
-            padding: 20px;
-            color: #94a3b8;
+        .table-dark {
+            background: transparent !important;
+            color: #e2d9f3 !important;
+        }
+        .table-dark thead th {
+            background: #120f1e !important;
+            color: #c4b5fd !important;
+            border-color: #2d2440 !important;
+        }
+        .table-dark tbody td {
+            border-color: #2d2440 !important;
+            background: transparent !important;
+        }
+
+        .badge {
+            font-size: 11px !important;
+            padding: 5px 10px !important;
+            border-radius: 20px !important;
+        }
+
+        .bg-primary   { background: #6d28d9 !important; }
+        .bg-success   { background: #166534 !important; color: #bbf7d0 !important; }
+        .bg-warning   { background: #713f12 !important; color: #fef08a !important; }
+        .bg-danger    { background: #7f1d1d !important; color: #fecaca !important; }
+        .bg-info      { background: #1e3a5f !important; color: #bae6fd !important; }
+        .bg-secondary { background: #2d2440 !important; color: #c4b5fd !important; }
+
+        .alert-success { background: #14532d; color: #bbf7d0; border-color: #22c55e; }
+        .alert-danger  { background: #7f1d1d; color: #fecaca; border-color: #ef4444; }
+        .alert-warning { background: #713f12; color: #fef08a; border-color: #facc15; }
+
+        .btn-close { filter: invert(1); }
+
+        footer { text-align: center; padding: 20px; color: #6d28d9; }
+
+        /* ── Push Shared Goal — fixed layout ── */
+        .shared-goal-row1 {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .shared-goal-row2 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr) auto;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .shared-goal-row2 .field-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .shared-goal-row2 label,
+        .shared-goal-row1 label {
+            font-size: 11px;
+            color: #8b5cf6;
+            font-weight: bold;
+            margin-bottom: 2px;
+            display: block;
+        }
+
+        .shared-goal-row2 .btn-push {
+            padding: 10px 16px;
+            white-space: nowrap;
+            width: 100%;
         }
 
     </style>
 
 </head>
 
-<!-- ★ LIVE UPDATE: data-role added -->
 <body data-role="manager">
 
 <div class="dashboard-container">
@@ -215,7 +326,7 @@
     <div class="top-bar">
 
         <div>
-            <h2>KPIFlow Enterprise 🚀</h2>
+            <h2 style="color:#c4b5fd;">KPIFlow Enterprise 🚀</h2>
             <span class="window-badge
                 {% if active_window == 'Goal Setting' %}goal-setting
                 {% elif active_window == 'Q4 / Annual' %}annual
@@ -225,7 +336,7 @@
         </div>
 
         <div class="d-flex align-items-center gap-3">
-            <span style="color:#94a3b8; font-size:13px;">
+            <span style="color:#8b5cf6; font-size:13px;">
                 <span class="live-dot"></span>Live Sync
             </span>
             <a href="/export_csv" class="btn btn-success">Export Report 📊</a>
@@ -251,32 +362,29 @@
 
         <div class="col-md-3">
             <div class="card-box analytics-card">
-                <h4>Total Goals</h4>
-                <!-- ★ LIVE UPDATE: data-total-goals -->
-                <h2><span data-total-goals>{{ total_goals }}</span></h2>
+                <h4 style="color:#c4b5fd;">Total Goals</h4>
+                <h2 style="color:#ddd6fe;"><span data-total-goals>{{ total_goals }}</span></h2>
             </div>
         </div>
 
         <div class="col-md-3">
             <div class="card-box analytics-card">
                 <h4 style="color:#facc15;">Pending Approvals</h4>
-                <!-- ★ LIVE UPDATE: data-pending-approvals -->
-                <h2 style="color:#facc15;"><span data-pending-approvals>{{ pending_approvals }}</span></h2>
+                <h2 style="color:#fde68a;"><span data-pending-approvals>{{ pending_approvals }}</span></h2>
             </div>
         </div>
 
         <div class="col-md-3">
             <div class="card-box analytics-card">
                 <h4 style="color:#22c55e;">Verified Goals</h4>
-                <!-- ★ LIVE UPDATE: data-verified-goals -->
-                <h2 style="color:#22c55e;"><span data-verified-goals>{{ verified_goals }}</span></h2>
+                <h2 style="color:#86efac;"><span data-verified-goals>{{ verified_goals }}</span></h2>
             </div>
         </div>
 
         <div class="col-md-3">
             <div class="card-box analytics-card">
                 <h4 style="color:#38bdf8;">KPI Health</h4>
-                <h2 style="color:#38bdf8;">{{ kpi_health }}%</h2>
+                <h2 style="color:#7dd3fc;">{{ kpi_health }}%</h2>
             </div>
         </div>
 
@@ -286,7 +394,7 @@
     <div class="card-box completion-card">
 
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3>Completion Dashboard 📊</h3>
+            <h3 style="color:#c4b5fd;">Completion Dashboard 📊</h3>
             <span class="badge bg-secondary">Window: {{ active_window }}</span>
         </div>
 
@@ -294,8 +402,7 @@
             {% for item in completion_dashboard %}
             <div class="col-md-4">
                 <div class="review-box">
-                    <h5 style="color:#93c5fd;">{{ item.employee }}</h5>
-                    <!-- ★ LIVE UPDATE: data-emp-verified per employee -->
+                    <h5 style="color:#a78bfa;">{{ item.employee }}</h5>
                     <div>
                         <span data-emp-verified="{{ item.employee }}" style="display:none;">{{ item.verified }}/{{ item.total_goals }}</span>
                     </div>
@@ -308,7 +415,6 @@
                     {% else %}
                     <span class="status-badge awaiting">Check-in Pending</span>
                     {% endif %}
-                    <!-- ★ LIVE UPDATE: data-emp-avg per employee -->
                     <div class="uom-hint mt-2">Avg Score: <span data-emp-avg="{{ item.employee }}">{{ item.avg_score }}</span>%</div>
                 </div>
             </div>
@@ -320,8 +426,8 @@
     <!-- PUSH SHARED GOAL -->
     <div class="card-box">
 
-        <h3 class="mb-1">Push Shared Goal 🌐</h3>
-        <p class="text-muted mb-4" style="font-size:13px;">
+        <h3 class="mb-1" style="color:#c4b5fd;">Push Shared Goal 🌐</h3>
+        <p style="font-size:13px; color:#8b5cf6; margin-bottom:20px;">
             Shared goals are pushed to all employees. Title and Target are read-only for recipients.
             Recipients can adjust weightage (BRD §2.1).
         </p>
@@ -330,23 +436,28 @@
 
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
-            <div class="row g-3 mb-3">
+            <!-- Row 1: Title + Description -->
+            <div class="shared-goal-row1">
 
-                <div class="col-md-4">
-                    <input type="text" name="title" placeholder="Shared Goal Title" required>
+                <div>
+                    <label>Shared Goal Title</label>
+                    <input type="text" name="title" placeholder="Enter shared goal title" required>
                 </div>
 
-                <div class="col-md-8">
-                    <textarea name="description" placeholder="Shared Goal Description" required></textarea>
+                <div>
+                    <label>Description</label>
+                    <textarea name="description" placeholder="Shared Goal Description" required style="min-height:44px; resize:none;"></textarea>
                 </div>
 
             </div>
 
-            <div class="row g-3">
+            <!-- Row 2: UoM | Target | Thrust | Quarter | Button -->
+            <div class="shared-goal-row2">
 
-                <div class="col-md-2">
+                <div class="field-group">
+                    <label>Unit of Measure</label>
                     <select name="uom_type" id="sharedUomSelect" required onchange="toggleSharedTarget()">
-                        <option value="">Unit of Measure</option>
+                        <option value="">Select UoM</option>
                         <optgroup label="Numeric">
                             <option value="Numeric-Min">Numeric — Higher is Better</option>
                             <option value="Numeric-Max">Numeric — Lower is Better</option>
@@ -360,22 +471,26 @@
                     </select>
                 </div>
 
-                <div class="col-md-2" id="sharedTargetNumDiv">
-                    <input type="number" step="0.01" name="target" placeholder="Target Value">
+                <div class="field-group" id="sharedTargetNumDiv">
+                    <label>Target Value</label>
+                    <input type="number" step="0.01" name="target" placeholder="Enter target">
                 </div>
 
-                <div class="col-md-2" id="sharedTargetDateDiv" style="display:none;">
-                    <input type="date" name="target_date" placeholder="Target Date">
+                <div class="field-group" id="sharedTargetDateDiv" style="display:none;">
+                    <label>Target Date</label>
+                    <input type="date" name="target_date">
                     <div class="uom-hint">Deadline for completion</div>
                 </div>
 
-                <div class="col-md-2">
+                <div class="field-group">
+                    <label>Thrust Area</label>
                     <input type="text" name="thrust" placeholder="Thrust Area" required>
                 </div>
 
-                <div class="col-md-2">
+                <div class="field-group">
+                    <label>Quarter</label>
                     <select name="quarter" required>
-                        <option value="">Quarter</option>
+                        <option value="">Select</option>
                         <option>Q1</option>
                         <option>Q2</option>
                         <option>Q3</option>
@@ -384,8 +499,8 @@
                     </select>
                 </div>
 
-                <div class="col-md-2">
-                    <button class="btn btn-primary w-100 h-100">Push Shared Goal 🌐</button>
+                <div>
+                    <button type="submit" class="btn btn-primary btn-push">Push Shared Goal 🌐</button>
                 </div>
 
             </div>
@@ -397,7 +512,7 @@
     <!-- EMPLOYEE FILTERS -->
     <div class="card-box">
 
-        <h4 class="mb-4">Employee Filters 👨‍💼</h4>
+        <h4 class="mb-4" style="color:#c4b5fd;">Employee Filters 👨‍💼</h4>
 
         <a href="/manager" class="employee-pill {% if not selected_employee %}active{% endif %}">
             Show All
@@ -415,7 +530,7 @@
     <!-- KPI TABLE -->
     <div class="card-box">
 
-        <h3 class="mb-4">Workforce KPI Governance 🧠</h3>
+        <h3 class="mb-4" style="color:#c4b5fd;">Workforce KPI Governance 🧠</h3>
 
         <div class="table-responsive">
 
@@ -454,7 +569,7 @@
 
                     <td>
                         <strong>{{ goal.title }}</strong><br>
-                        <small style="color:#94a3b8;">{{ goal.description[:50] }}{% if goal.description|length > 50 %}…{% endif %}</small><br>
+                        <small style="color:#8b5cf6;">{{ goal.description[:50] }}{% if goal.description|length > 50 %}…{% endif %}</small><br>
                         {% if goal.high_priority %}
                         <span class="priority-badge">⭐ HIGH PRIORITY</span>
                         {% endif %}
@@ -484,7 +599,6 @@
 
                     <td><span class="badge bg-primary">{{ goal.weightage }}%</span></td>
 
-                    <!-- ★ LIVE UPDATE: data-goal-achievement -->
                     <td>
                         {% if goal.uom_type == "Timeline" %}
                             <span style="font-size:12px;">
@@ -496,14 +610,12 @@
                         {% endif %}
                     </td>
 
-                    <!-- ★ LIVE UPDATE: data-goal-score -->
                     <td>
                         <span class="badge bg-success">
                             <span data-goal-score="{{ goal.id }}">{{ goal.performance_score }}</span>%
                         </span>
                     </td>
 
-                    <!-- ★ LIVE UPDATE: hidden anchors for approval + progress -->
                     <td>
                         <span data-goal-approval="{{ goal.id }}" style="display:none;">{{ goal.approval_status }}</span>
                         <span data-goal-progress="{{ goal.id }}" style="display:none;">{{ goal.progress_status }}</span>
@@ -538,7 +650,7 @@
                             <button class="btn btn-info btn-sm mt-2 w-100">Save Comment</button>
                         </form>
                         {% if goal.quarterly_review %}
-                        <div class="review-box mt-2" style="font-size:11px; color:#94a3b8;">
+                        <div class="review-box mt-2" style="font-size:11px; color:#8b5cf6;">
                             Saved: {{ goal.quarterly_review[:60] }}{% if goal.quarterly_review|length > 60 %}…{% endif %}
                         </div>
                         {% endif %}
@@ -644,7 +756,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-// Shared goal push form — toggle target field for Timeline UoM
 function toggleSharedTarget() {
     const uom     = document.getElementById('sharedUomSelect').value;
     const numDiv  = document.getElementById('sharedTargetNumDiv');
@@ -652,11 +763,13 @@ function toggleSharedTarget() {
 
     if (uom === 'Timeline') {
         numDiv.style.display  = 'none';
-        dateDiv.style.display = 'block';
+        dateDiv.style.display = 'flex';
+        dateDiv.style.flexDirection = 'column';
         numDiv.querySelector('input').removeAttribute('required');
         dateDiv.querySelector('input').setAttribute('required', 'required');
     } else {
-        numDiv.style.display  = 'block';
+        numDiv.style.display  = 'flex';
+        numDiv.style.flexDirection = 'column';
         dateDiv.style.display = 'none';
         numDiv.querySelector('input').setAttribute('required', 'required');
         dateDiv.querySelector('input').removeAttribute('required');
@@ -664,7 +777,7 @@ function toggleSharedTarget() {
 }
 </script>
 
-<!-- ★ LIVE UPDATE SCRIPT — replaces old window.location.reload() SSE block ★ -->
+<!-- LIVE UPDATE SCRIPT -->
 <script>
 (function () {
     "use strict";
@@ -675,12 +788,10 @@ function toggleSharedTarget() {
     const isEmployee = role === "employee";
     const isManager  = role === "manager" || role === "admin";
 
-    /* Guard: don't patch while user is typing */
     let userIsTyping = false;
     document.addEventListener("focusin",  e => { if (e.target.matches("input,textarea,select")) userIsTyping = true;  });
     document.addEventListener("focusout", e => { if (e.target.matches("input,textarea,select")) userIsTyping = false; });
 
-    /* SSE with exponential back-off */
     let retryDelay = 3000;
 
     function connect() {
@@ -698,7 +809,6 @@ function toggleSharedTarget() {
             }
         };
 
-        /* backward-compat: plain-text "reload" from old server */
         es.addEventListener("message", (e) => {
             if (e.data === "reload" && !userIsTyping) {
                 if (isEmployee) refreshEmployee();
@@ -713,7 +823,6 @@ function toggleSharedTarget() {
         };
     }
 
-    /* Employee partial refresh */
     function refreshEmployee() {
         if (userIsTyping) return;
         fetch("/api/employee_goals", { credentials: "same-origin" })
@@ -734,7 +843,6 @@ function toggleSharedTarget() {
             .catch(() => {});
     }
 
-    /* Manager partial refresh */
     function refreshManager() {
         if (userIsTyping) return;
         fetch("/api/manager_summary", { credentials: "same-origin" })
@@ -759,20 +867,18 @@ function toggleSharedTarget() {
             .catch(() => {});
     }
 
-    /* Patch only when value changed; flash blue highlight */
     function patch(selector, value) {
         const el = document.querySelector(selector);
         if (!el || el.textContent === String(value)) return;
         el.textContent = value;
         el.style.transition = "background 0s";
-        el.style.background = "rgba(59,130,246,0.35)";
+        el.style.background = "rgba(109,40,217,0.35)";
         setTimeout(() => {
             el.style.transition = "background 1.2s ease";
             el.style.background = "";
         }, 50);
     }
 
-    /* Bottom-right toast */
     function toast(text) {
         let badge = document.getElementById("_live_badge");
         if (!badge) {
@@ -780,9 +886,10 @@ function toggleSharedTarget() {
             badge.id = "_live_badge";
             Object.assign(badge.style, {
                 position: "fixed", bottom: "16px", right: "16px", zIndex: "9999",
-                background: "#1e3a5f", color: "#fff", padding: "6px 14px",
+                background: "#4c1d95", color: "#ddd6fe", padding: "6px 14px",
                 borderRadius: "20px", fontSize: "12px", fontWeight: "600",
                 boxShadow: "0 2px 8px rgba(0,0,0,.3)", transition: "opacity .4s", opacity: "0",
+                border: "1px solid #7c3aed",
             });
             document.body.appendChild(badge);
         }
