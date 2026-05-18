@@ -20,7 +20,12 @@ except ImportError:
 
 app = Flask(__name__)
 
-app.secret_key = os.environ.get("SECRET_KEY", "kpiflow_secret_key_2025_change_in_prod")
+import os
+
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "kpiforge_secret"
+)
 
 app.config["SESSION_PERMANENT"]         = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
