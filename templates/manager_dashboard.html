@@ -162,7 +162,6 @@
 
         .completion-card { border-left: 5px solid #3b82f6; }
 
-        /* FIX: Window badge */
         .window-badge {
             padding: 6px 16px;
             border-radius: 20px;
@@ -207,7 +206,8 @@
 
 </head>
 
-<body>
+<!-- ★ LIVE UPDATE: data-role added -->
+<body data-role="manager">
 
 <div class="dashboard-container">
 
@@ -216,7 +216,6 @@
 
         <div>
             <h2>KPIFlow Enterprise 🚀</h2>
-            <!-- FIX: Show active window in manager top bar -->
             <span class="window-badge
                 {% if active_window == 'Goal Setting' %}goal-setting
                 {% elif active_window == 'Q4 / Annual' %}annual
@@ -253,21 +252,24 @@
         <div class="col-md-3">
             <div class="card-box analytics-card">
                 <h4>Total Goals</h4>
-                <h2>{{ total_goals }}</h2>
+                <!-- ★ LIVE UPDATE: data-total-goals -->
+                <h2><span data-total-goals>{{ total_goals }}</span></h2>
             </div>
         </div>
 
         <div class="col-md-3">
             <div class="card-box analytics-card">
                 <h4 style="color:#facc15;">Pending Approvals</h4>
-                <h2 style="color:#facc15;">{{ pending_approvals }}</h2>
+                <!-- ★ LIVE UPDATE: data-pending-approvals -->
+                <h2 style="color:#facc15;"><span data-pending-approvals>{{ pending_approvals }}</span></h2>
             </div>
         </div>
 
         <div class="col-md-3">
             <div class="card-box analytics-card">
                 <h4 style="color:#22c55e;">Verified Goals</h4>
-                <h2 style="color:#22c55e;">{{ verified_goals }}</h2>
+                <!-- ★ LIVE UPDATE: data-verified-goals -->
+                <h2 style="color:#22c55e;"><span data-verified-goals>{{ verified_goals }}</span></h2>
             </div>
         </div>
 
@@ -280,7 +282,7 @@
 
     </div>
 
-    <!-- FIX: COMPLETION DASHBOARD — tracks check-in completion per employee -->
+    <!-- COMPLETION DASHBOARD -->
     <div class="card-box completion-card">
 
         <div class="d-flex justify-content-between align-items-center mb-4">
@@ -293,6 +295,10 @@
             <div class="col-md-4">
                 <div class="review-box">
                     <h5 style="color:#93c5fd;">{{ item.employee }}</h5>
+                    <!-- ★ LIVE UPDATE: data-emp-verified per employee -->
+                    <div>
+                        <span data-emp-verified="{{ item.employee }}" style="display:none;">{{ item.verified }}/{{ item.total_goals }}</span>
+                    </div>
                     {% if item.status == "Completed" %}
                     <span class="status-badge verified">All Goals Verified ✅</span>
                     {% elif item.status == "In Progress" %}
@@ -302,6 +308,8 @@
                     {% else %}
                     <span class="status-badge awaiting">Check-in Pending</span>
                     {% endif %}
+                    <!-- ★ LIVE UPDATE: data-emp-avg per employee -->
+                    <div class="uom-hint mt-2">Avg Score: <span data-emp-avg="{{ item.employee }}">{{ item.avg_score }}</span>%</div>
                 </div>
             </div>
             {% endfor %}
@@ -309,7 +317,7 @@
 
     </div>
 
-    <!-- FIX: PUSH SHARED GOAL — with UoM selector and Timeline support -->
+    <!-- PUSH SHARED GOAL -->
     <div class="card-box">
 
         <h3 class="mb-1">Push Shared Goal 🌐</h3>
@@ -319,6 +327,8 @@
         </p>
 
         <form action="/push_shared_goal" method="POST" id="sharedGoalForm">
+
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
 
             <div class="row g-3 mb-3">
 
@@ -334,7 +344,6 @@
 
             <div class="row g-3">
 
-                <!-- FIX: UoM selector for shared goals -->
                 <div class="col-md-2">
                     <select name="uom_type" id="sharedUomSelect" required onchange="toggleSharedTarget()">
                         <option value="">Unit of Measure</option>
@@ -459,14 +468,12 @@
 
                     <td>{{ goal.quarter }}</td>
 
-                    <!-- FIX: Show BRD UoM label -->
                     <td>
                         <span class="badge bg-info text-dark" style="font-size:11px;">
                             {{ goal.uom_type }}
                         </span>
                     </td>
 
-                    <!-- FIX: Show target date for Timeline -->
                     <td>
                         {% if goal.uom_type == "Timeline" %}
                             <span style="font-size:12px;">📅 {{ goal.target_date or "—" }}</span>
@@ -477,7 +484,7 @@
 
                     <td><span class="badge bg-primary">{{ goal.weightage }}%</span></td>
 
-                    <!-- FIX: Show actual date for Timeline goals -->
+                    <!-- ★ LIVE UPDATE: data-goal-achievement -->
                     <td>
                         {% if goal.uom_type == "Timeline" %}
                             <span style="font-size:12px;">
@@ -485,14 +492,22 @@
                                 {% else %}Not entered{% endif %}
                             </span>
                         {% else %}
-                            {{ goal.actual_achievement }}
+                            <span data-goal-achievement="{{ goal.id }}">{{ goal.actual_achievement }}</span>
                         {% endif %}
                     </td>
 
-                    <td><span class="badge bg-success">{{ goal.performance_score }}%</span></td>
-
-                    <!-- FIX: Full status set -->
+                    <!-- ★ LIVE UPDATE: data-goal-score -->
                     <td>
+                        <span class="badge bg-success">
+                            <span data-goal-score="{{ goal.id }}">{{ goal.performance_score }}</span>%
+                        </span>
+                    </td>
+
+                    <!-- ★ LIVE UPDATE: hidden anchors for approval + progress -->
+                    <td>
+                        <span data-goal-approval="{{ goal.id }}" style="display:none;">{{ goal.approval_status }}</span>
+                        <span data-goal-progress="{{ goal.id }}" style="display:none;">{{ goal.progress_status }}</span>
+
                         {% if goal.progress_status == "Verified" %}
                             <span class="status-badge verified">Verified ✅</span>
                         {% elif goal.progress_status == "Completed" %}
@@ -516,6 +531,7 @@
                     <!-- QUARTERLY CHECK-IN COMMENT -->
                     <td>
                         <form action="/quarterly_review/{{ goal.id }}" method="POST">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <textarea name="review"
                                       placeholder="Add check-in comment…"
                                       style="min-height:70px; font-size:12px;">{{ goal.quarterly_review }}</textarea>
@@ -537,9 +553,9 @@
                     <td>
                         <div class="action-box">
 
-                            <!-- EDIT (inline — BRD: manager can edit during approval) -->
-                            <!-- FIX: Shared goal title/target locked; only non-shared goals show target edit -->
+                            <!-- EDIT -->
                             <form action="/edit_goal/{{ goal.id }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 {% if not goal.shared_goal %}
                                     {% if goal.uom_type == "Timeline" %}
                                     <input type="date" name="target_date"
@@ -553,7 +569,6 @@
                                            required class="mb-2" style="font-size:12px;">
                                     {% endif %}
                                 {% else %}
-                                <!-- Shared goal: target locked, only weightage editable -->
                                 <div class="uom-hint mb-1" style="color:#a855f7;">
                                     🌐 Shared — target is read-only
                                 </div>
@@ -569,24 +584,29 @@
 
                             <!-- APPROVE -->
                             {% if goal.approval_status == "Pending Approval" %}
-                            <a href="/approve_goal/{{ goal.id }}"
-                               class="btn btn-success btn-sm"
-                               onclick="return confirm('Approve this goal?')">
-                                Approve Goal ✅
-                            </a>
+                            <form action="/approve_goal/{{ goal.id }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-success btn-sm w-100"
+                                        onclick="return confirm('Approve this goal?')">
+                                    Approve Goal ✅
+                                </button>
+                            </form>
                             {% endif %}
 
-                            <!-- VERIFY — shown when employee marks Completed -->
+                            <!-- VERIFY -->
                             {% if goal.progress_status in ("Completed", "Awaiting Verification") %}
-                            <a href="/verify_goal/{{ goal.id }}"
-                               class="btn btn-primary btn-sm"
-                               onclick="return confirm('Verify this goal as complete?')">
-                                Verify Goal 🔍
-                            </a>
+                            <form action="/verify_goal/{{ goal.id }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-primary btn-sm w-100"
+                                        onclick="return confirm('Verify this goal as complete?')">
+                                    Verify Goal 🔍
+                                </button>
+                            </form>
                             {% endif %}
 
                             <!-- REWORK -->
                             <form action="/rework_goal/{{ goal.id }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="text" name="comment"
                                        placeholder="Rework reason (required)"
                                        required class="mb-2" style="font-size:12px;">
@@ -595,6 +615,7 @@
 
                             <!-- REJECT -->
                             <form action="/reject_goal/{{ goal.id }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="text" name="comment"
                                        placeholder="Rejection reason (required)"
                                        required class="mb-2" style="font-size:12px;">
@@ -623,8 +644,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-
-// FIX: Shared goal push form — toggle target field for Timeline UoM
+// Shared goal push form — toggle target field for Timeline UoM
 function toggleSharedTarget() {
     const uom     = document.getElementById('sharedUomSelect').value;
     const numDiv  = document.getElementById('sharedTargetNumDiv');
@@ -642,32 +662,139 @@ function toggleSharedTarget() {
         dateDiv.querySelector('input').removeAttribute('required');
     }
 }
+</script>
 
-// ── SERVER-SENT EVENTS — live sync ──────────────────────────────────
-let isTyping = false;
+<!-- ★ LIVE UPDATE SCRIPT — replaces old window.location.reload() SSE block ★ -->
+<script>
+(function () {
+    "use strict";
 
-document.querySelectorAll("input, textarea, select").forEach(el => {
-    el.addEventListener("focus", () => isTyping = true);
-    el.addEventListener("blur",  () => isTyping = false);
-});
+    const role = document.body.dataset.role;
+    if (!role) return;
 
-function connectSSE() {
-    const source = new EventSource("/stream");
-    source.onmessage = function(e) {
-        if (e.data === "reload" && !isTyping) {
-            window.location.reload();
+    const isEmployee = role === "employee";
+    const isManager  = role === "manager" || role === "admin";
+
+    /* Guard: don't patch while user is typing */
+    let userIsTyping = false;
+    document.addEventListener("focusin",  e => { if (e.target.matches("input,textarea,select")) userIsTyping = true;  });
+    document.addEventListener("focusout", e => { if (e.target.matches("input,textarea,select")) userIsTyping = false; });
+
+    /* SSE with exponential back-off */
+    let retryDelay = 3000;
+
+    function connect() {
+        const es = new EventSource("/stream");
+
+        es.onopen = () => { retryDelay = 3000; };
+
+        es.onmessage = (e) => {
+            let msg;
+            try { msg = JSON.parse(e.data); } catch { return; }
+            if (msg.type === "ping" || msg.type === "connected") return;
+            if (msg.type === "update") {
+                if (isEmployee) refreshEmployee();
+                if (isManager)  refreshManager();
+            }
+        };
+
+        /* backward-compat: plain-text "reload" from old server */
+        es.addEventListener("message", (e) => {
+            if (e.data === "reload" && !userIsTyping) {
+                if (isEmployee) refreshEmployee();
+                if (isManager)  refreshManager();
+            }
+        });
+
+        es.onerror = () => {
+            es.close();
+            retryDelay = Math.min(retryDelay * 1.5, 30000);
+            setTimeout(connect, retryDelay);
+        };
+    }
+
+    /* Employee partial refresh */
+    function refreshEmployee() {
+        if (userIsTyping) return;
+        fetch("/api/employee_goals", { credentials: "same-origin" })
+            .then(r => (r.ok ? r.json() : null))
+            .then(data => {
+                if (!data) return;
+                data.goals.forEach(g => {
+                    patch(`[data-goal-approval="${g.id}"]`,    g.approval_status);
+                    patch(`[data-goal-progress="${g.id}"]`,    g.progress_status);
+                    patch(`[data-goal-score="${g.id}"]`,       g.performance_score);
+                    patch(`[data-goal-achievement="${g.id}"]`, g.actual_achievement);
+                    if (g.comment)          patch(`[data-goal-comment="${g.id}"]`, g.comment);
+                    if (g.quarterly_review) patch(`[data-goal-review="${g.id}"]`,  g.quarterly_review);
+                });
+                patch("[data-total-weightage]", data.total_weightage);
+                toast("🔄 Live updated");
+            })
+            .catch(() => {});
+    }
+
+    /* Manager partial refresh */
+    function refreshManager() {
+        if (userIsTyping) return;
+        fetch("/api/manager_summary", { credentials: "same-origin" })
+            .then(r => (r.ok ? r.json() : null))
+            .then(data => {
+                if (!data) return;
+                patch("[data-pending-approvals]", data.pending_approvals);
+                patch("[data-verified-goals]",    data.verified_goals);
+                patch("[data-total-goals]",       data.total_goals);
+                (data.summary || []).forEach(s => {
+                    patch(`[data-emp-avg="${s.employee}"]`,      s.avg_score + "%");
+                    patch(`[data-emp-verified="${s.employee}"]`, s.verified + "/" + s.total_goals);
+                });
+                (data.goals || []).forEach(g => {
+                    patch(`[data-goal-approval="${g.id}"]`,    g.approval_status);
+                    patch(`[data-goal-progress="${g.id}"]`,    g.progress_status);
+                    patch(`[data-goal-score="${g.id}"]`,       g.performance_score + "%");
+                    patch(`[data-goal-achievement="${g.id}"]`, g.actual_achievement);
+                });
+                toast("🔄 Live updated");
+            })
+            .catch(() => {});
+    }
+
+    /* Patch only when value changed; flash blue highlight */
+    function patch(selector, value) {
+        const el = document.querySelector(selector);
+        if (!el || el.textContent === String(value)) return;
+        el.textContent = value;
+        el.style.transition = "background 0s";
+        el.style.background = "rgba(59,130,246,0.35)";
+        setTimeout(() => {
+            el.style.transition = "background 1.2s ease";
+            el.style.background = "";
+        }, 50);
+    }
+
+    /* Bottom-right toast */
+    function toast(text) {
+        let badge = document.getElementById("_live_badge");
+        if (!badge) {
+            badge = document.createElement("div");
+            badge.id = "_live_badge";
+            Object.assign(badge.style, {
+                position: "fixed", bottom: "16px", right: "16px", zIndex: "9999",
+                background: "#1e3a5f", color: "#fff", padding: "6px 14px",
+                borderRadius: "20px", fontSize: "12px", fontWeight: "600",
+                boxShadow: "0 2px 8px rgba(0,0,0,.3)", transition: "opacity .4s", opacity: "0",
+            });
+            document.body.appendChild(badge);
         }
-    };
-    source.onerror = function() {
-        source.close();
-        setTimeout(connectSSE, 5000);
-    };
-}
+        badge.textContent = text;
+        badge.style.opacity = "1";
+        clearTimeout(badge._t);
+        badge._t = setTimeout(() => { badge.style.opacity = "0"; }, 2500);
+    }
 
-connectSSE();
-
+    connect();
+})();
 </script>
 
 </body>
-
 </html>

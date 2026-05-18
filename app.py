@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, flash, session, Response, stream_with_context
+from flask import Flask, render_template, request, redirect, flash, session, Response, stream_with_context, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
@@ -21,24 +21,21 @@ except ImportError:
 app = Flask(__name__)
 
 # ─────────────────────────────────────────
-# FIX 1: SESSION & COOKIE CONFIGURATION
-# SESSION_COOKIE_SECURE = True was killing sessions on HTTP (local dev).
-# Only enable Secure cookies when actually running HTTPS in production.
+# SESSION & COOKIE CONFIGURATION
 # ─────────────────────────────────────────
 
-app.secret_key = os.environ.get("SECRET_KEY", "kpiforge_secret_dev")
+app.secret_key = os.environ.get("SECRET_KEY", "kpiforge_secret_dev_change_in_prod")
 
-# Detect environment — set FLASK_ENV=production in prod
 IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 
 app.config["SESSION_PERMANENT"] = True
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
-
-# FIX: Only use Secure cookies over HTTPS. On HTTP (localhost), this must be False
-# or the browser silently drops the cookie → every POST looks like logged-out user.
-app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION  # ← was hardcoded True — BREAKS local HTTP
+app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+# FIX 1: Give the session cookie a stable name and extend its lifetime
+# so it survives SSE connections and rapid consecutive POSTs.
+app.config["SESSION_COOKIE_NAME"] = "kpiforge_session"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -60,26 +57,30 @@ USERS = {
 
 
 # ─────────────────────────────────────────
-# FIX 2: CSRF — was validate_csrf() always returning True but also
-# calling generate_csrf() on every GET, sometimes regenerating the token
-# mid-session. Now we generate once and validate properly.
+# FIX 2: CSRF — Stable token per session.
+# The token is generated ONCE at login and never regenerated.
+# validate_csrf() now properly compares form token vs session token.
+# All forms must include {{ csrf_token() }} as a hidden input.
 # ─────────────────────────────────────────
 
 def generate_csrf():
+    """Return (and create if missing) the CSRF token for this session."""
     if "_csrf_token" not in session:
         session["_csrf_token"] = secrets.token_hex(16)
+        session.modified = True  # Force Flask to save the session
     return session["_csrf_token"]
 
 
 def validate_csrf():
     """
-    FIX: Was always returning True (no-op). Now actually validates.
-    The token from the form must match what's in the session.
-    If session has no token yet, we skip validation (fresh session edge case).
+    Validate CSRF token from form against session.
+    Returns True if valid (or if no session token exists yet — first POST edge case).
+    Returns False if tokens don't match (genuine CSRF attempt).
     """
     token_in_session = session.get("_csrf_token")
     if not token_in_session:
-        return True  # No token yet — allow through, generate on next GET
+        # No token in session means session is gone → redirect to login, not error
+        return None  # Caller should treat None as "session expired"
     token_in_form = request.form.get("_csrf_token", "")
     return secrets.compare_digest(token_in_session, token_in_form)
 
@@ -114,6 +115,27 @@ def role_required(*roles):
             return f(*args, **kwargs)
         return decorated
     return decorator
+
+
+# ─────────────────────────────────────────
+# CSRF HELPER — centralised failure handling
+# ─────────────────────────────────────────
+
+def csrf_fail(redirect_to="/"):
+    """
+    FIX 3: Centralised CSRF failure handler.
+    - If validate_csrf() returns None → session is gone → redirect to login silently.
+    - If it returns False → genuine bad token → flash an error.
+    Returns a redirect Response or None (meaning validation passed).
+    """
+    result = validate_csrf()
+    if result is None:
+        # Session expired → send to login
+        return redirect("/")
+    if result is False:
+        flash("Your session token is invalid. Please try again.", "danger")
+        return redirect(redirect_to)
+    return None  # All good
 
 
 # ─────────────────────────────────────────
@@ -253,19 +275,34 @@ def can_update_achievement():
 
 
 # ─────────────────────────────────────────
-# FIX 3: SSE — LIVE DASHBOARD SYNC
-# Previously get_db_state() used SUM(performance_score) which can be NULL
-# when no goals exist, causing the stream to crash and disconnect.
-# Now uses COALESCE to handle NULL safely.
-# Also added proper exception handling so the stream never dies silently.
+# FIX 4: SSE — LIVE DASHBOARD SYNC
+#
+# ROOT CAUSE OF THE SESSION BUG:
+# The old SSE stream sent "data: reload\n\n" and the client JS did
+# window.location.reload(). A full page reload re-sends the session
+# cookie BUT some browsers (especially Chrome/Safari) drop or delay
+# the Set-Cookie header on EventSource connections, causing the session
+# to be seen as new/empty on the very next POST → redirect to login.
+#
+# THE FIX:
+# 1. SSE now sends a JSON payload describing WHAT changed (employee or manager data).
+# 2. The client JS calls a lightweight JSON endpoint (/api/employee_goals or
+#    /api/manager_summary) and patches only the affected DOM elements.
+# 3. No full page reload ever happens from SSE. The page only reloads if
+#    the user explicitly navigates.
+# 4. The SSE endpoint itself never touches the session (read-only).
 # ─────────────────────────────────────────
 
 def get_db_state():
+    """
+    Returns a lightweight fingerprint of the DB for change detection.
+    Uses COALESCE to handle empty tables safely.
+    """
     from sqlalchemy import text
     with db.engine.connect() as conn:
         row = conn.execute(text(
-            "SELECT COUNT(*), MAX(id), COALESCE(SUM(performance_score), 0) FROM goal"
-            # FIX: COALESCE prevents NULL crash when table is empty
+            "SELECT COUNT(*), MAX(id), COALESCE(SUM(performance_score), 0), "
+            "COALESCE(SUM(weightage), 0) FROM goal"
         )).fetchone()
     return str(row)
 
@@ -274,15 +311,19 @@ def get_db_state():
 @login_required
 def stream():
     """
-    FIX: SSE stream now sends the user's role so the client can decide
-    what to reload. Also sends a proper 'retry' directive so browsers
-    automatically reconnect if the connection drops.
+    SSE endpoint. Sends JSON events describing what changed.
+    Clients use this to fetch updated data via /api/* — NOT to trigger
+    full page reloads (which break sessions).
     """
+    # Capture user info before entering the generator (session not safe inside generator thread)
+    current_user = session.get("user", "")
+    current_role = session.get("role", "")
+
     def event_stream():
         last_state = None
-        # Send an immediate connection confirmation
-        yield "retry: 3000\n"  # Tell browser to retry after 3s if disconnected
-        yield "data: connected\n\n"
+        # Tell browser to reconnect after 5s if connection drops
+        yield "retry: 5000\n"
+        yield f"data: {json.dumps({'type': 'connected', 'role': current_role})}\n\n"
 
         while True:
             time.sleep(3)
@@ -290,13 +331,20 @@ def stream():
                 current = get_db_state()
                 if current != last_state:
                     last_state = current
-                    yield "data: reload\n\n"
+                    # Send role-specific update signal — client fetches its own API
+                    payload = json.dumps({
+                        "type": "update",
+                        "role": current_role,
+                        "user": current_user,
+                        "ts": int(time.time())
+                    })
+                    yield f"data: {payload}\n\n"
                 else:
-                    yield "data: ping\n\n"
+                    yield f"data: {json.dumps({'type': 'ping'})}\n\n"
             except GeneratorExit:
-                break  # Client disconnected cleanly
+                break
             except Exception:
-                yield "data: ping\n\n"  # Keep alive even on DB errors
+                yield f"data: {json.dumps({'type': 'ping'})}\n\n"
 
     return Response(
         stream_with_context(event_stream()),
@@ -310,17 +358,17 @@ def stream():
 
 
 # ─────────────────────────────────────────
-# FIX 4: API ENDPOINT FOR LIVE PARTIAL RELOAD
-# Instead of full page reload (which resets scroll position and feels jarring),
-# dashboards can fetch just the data they need via these JSON endpoints.
+# JSON API ENDPOINTS — for live partial updates
+# These return only the data needed to patch the DOM.
+# Called by client JS on SSE update events.
 # ─────────────────────────────────────────
 
 @app.route("/api/employee_goals")
 @role_required("employee")
 def api_employee_goals():
-    """Returns current employee's goals as JSON for live updates."""
+    """Returns current employee's goals as JSON for live DOM patching."""
     goals = Goal.query.filter_by(employee=session["user"]).all()
-    return {
+    return jsonify({
         "goals": [
             {
                 "id": g.id,
@@ -329,21 +377,23 @@ def api_employee_goals():
                 "progress_status": g.progress_status,
                 "performance_score": g.performance_score,
                 "weightage": g.weightage,
-                "comment": g.comment,
+                "comment": g.comment or "",
                 "high_priority": g.high_priority,
                 "actual_achievement": g.actual_achievement,
+                "quarterly_review": g.quarterly_review or "",
             }
             for g in goals
         ],
         "total_weightage": sum(g.weightage for g in goals),
         "active_window": get_active_window(),
-    }
+        "finalized": goals[0].finalized if goals else False,
+    })
 
 
 @app.route("/api/manager_summary")
 @role_required("manager", "admin")
 def api_manager_summary():
-    """Returns KPI health summary for live manager dashboard updates."""
+    """Returns KPI health summary + all goals for live manager dashboard patching."""
     employees = ["employee1", "employee2", "employee3"]
     summary = []
     for emp in employees:
@@ -356,12 +406,31 @@ def api_manager_summary():
             "verified": verified,
             "avg_score": avg_score,
         })
-    return {
+
+    all_goals = Goal.query.all()
+    return jsonify({
         "summary": summary,
         "pending_approvals": Goal.query.filter_by(approval_status="Pending Approval").count(),
         "verified_goals": Goal.query.filter_by(progress_status="Verified").count(),
         "total_goals": Goal.query.count(),
-    }
+        "goals": [
+            {
+                "id": g.id,
+                "employee": g.employee,
+                "title": g.title,
+                "approval_status": g.approval_status,
+                "progress_status": g.progress_status,
+                "performance_score": g.performance_score,
+                "weightage": g.weightage,
+                "actual_achievement": g.actual_achievement,
+                "high_priority": g.high_priority,
+                "shared_goal": g.shared_goal,
+                "quarterly_review": g.quarterly_review or "",
+                "comment": g.comment or "",
+            }
+            for g in all_goals
+        ],
+    })
 
 
 # ─────────────────────────────────────────
@@ -376,11 +445,12 @@ def login():
         password = request.form.get("password", "")
         user = USERS.get(username)
         if user and check_password_hash(user["password_hash"], password):
+            session.clear()          # Clear any stale session data
             session.permanent = True
             session["user"]   = username
             session["role"]   = user["role"]
-            # FIX: Generate CSRF token immediately on login so it's
-            # stable for all subsequent form submissions in this session.
+            session.modified  = True
+            # Generate CSRF token immediately and lock it for this session
             generate_csrf()
             role = user["role"]
             if role == "employee":
@@ -431,11 +501,9 @@ def employee_dashboard():
 @app.route("/create_goal", methods=["POST"])
 @role_required("employee")
 def create_goal():
-    # FIX: validate_csrf now actually checks the token.
-    # If it fails, show a clear error instead of silently redirecting to login.
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/employee")
+    fail = csrf_fail("/employee")
+    if fail:
+        return fail
 
     if not can_create_goals():
         flash(f"Goal creation is only open during Goal Setting (May–June). Current: {get_active_window()}", "danger")
@@ -566,9 +634,9 @@ def complete_goal(id):
 @app.route("/update_achievement/<int:id>", methods=["POST"])
 @role_required("employee")
 def update_achievement(id):
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/employee")
+    fail = csrf_fail("/employee")
+    if fail:
+        return fail
 
     if not can_update_achievement():
         flash(f"Achievement updates are only allowed during check-in windows. Current: {get_active_window()}", "danger")
@@ -612,9 +680,9 @@ def update_achievement(id):
 @app.route("/update_shared_weightage/<int:id>", methods=["POST"])
 @role_required("employee")
 def update_shared_weightage(id):
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/employee")
+    fail = csrf_fail("/employee")
+    if fail:
+        return fail
 
     goal = Goal.query.get_or_404(id)
     if not goal.shared_goal:
@@ -727,9 +795,9 @@ def verify_goal(id):
 @app.route("/edit_goal/<int:id>", methods=["POST"])
 @role_required("manager")
 def edit_goal(id):
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/manager")
+    fail = csrf_fail("/manager")
+    if fail:
+        return fail
 
     goal = Goal.query.get_or_404(id)
     try:
@@ -765,9 +833,9 @@ def edit_goal(id):
 @app.route("/rework_goal/<int:id>", methods=["POST"])
 @role_required("manager")
 def rework_goal(id):
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/manager")
+    fail = csrf_fail("/manager")
+    if fail:
+        return fail
     goal = Goal.query.get_or_404(id)
     goal.approval_status = "Returned For Rework"
     goal.comment         = request.form.get("comment", "")
@@ -781,9 +849,9 @@ def rework_goal(id):
 @app.route("/push_shared_goal", methods=["POST"])
 @role_required("manager")
 def push_shared_goal():
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/manager")
+    fail = csrf_fail("/manager")
+    if fail:
+        return fail
 
     uom_type     = request.form.get("uom_type", "Numeric-Min")
     target_value = 0.0
@@ -851,9 +919,9 @@ def push_shared_goal():
 @app.route("/reject_goal/<int:id>", methods=["POST"])
 @role_required("manager")
 def reject_goal(id):
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/manager")
+    fail = csrf_fail("/manager")
+    if fail:
+        return fail
     goal = Goal.query.get_or_404(id)
     goal.approval_status = "Rejected"
     goal.comment = request.form.get("comment", "")
@@ -866,9 +934,9 @@ def reject_goal(id):
 @app.route("/quarterly_review/<int:id>", methods=["POST"])
 @role_required("manager")
 def quarterly_review(id):
-    if not validate_csrf():
-        flash("Session expired or invalid request. Please try again.", "danger")
-        return redirect("/manager")
+    fail = csrf_fail("/manager")
+    if fail:
+        return fail
     goal = Goal.query.get_or_404(id)
     goal.quarterly_review = request.form.get("review", "")
     add_audit(goal, f"Check-in Comment by {session['user']} [{get_active_window()}]")
@@ -1129,7 +1197,4 @@ def export_excel():
 # ─────────────────────────────────────────
 
 if __name__ == "__main__":
-    # FIX: threaded=True is required for SSE (Server-Sent Events) to work
-    # alongside regular requests. Without it, the SSE stream blocks all
-    # other requests on the same Flask dev server.
     app.run(debug=True, use_reloader=False, threaded=True)
