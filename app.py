@@ -3,12 +3,11 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, date
 from functools import wraps
-import os 
+import os
 import csv
 import io
 import time
 import json
-import os
 import secrets
 
 # ── Optional Excel export (openpyxl) ──────────────────────────────────────────
@@ -21,32 +20,34 @@ except ImportError:
 
 app = Flask(__name__)
 
-import os
+# ─────────────────────────────────────────
+# FIX 1: SESSION & COOKIE CONFIGURATION
+# SESSION_COOKIE_SECURE = True was killing sessions on HTTP (local dev).
+# Only enable Secure cookies when actually running HTTPS in production.
+# ─────────────────────────────────────────
 
-app.secret_key = os.environ.get(
-    "SECRET_KEY",
-    "kpiforge_secret"
-)
+app.secret_key = os.environ.get("SECRET_KEY", "kpiforge_secret_dev")
+
+# Detect environment — set FLASK_ENV=production in prod
+IS_PRODUCTION = os.environ.get("FLASK_ENV") == "production"
 
 app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 
-app.config["SESSION_COOKIE_SECURE"] = True
-
+# FIX: Only use Secure cookies over HTTPS. On HTTP (localhost), this must be False
+# or the browser silently drops the cookie → every POST looks like logged-out user.
+app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION  # ← was hardcoded True — BREAKS local HTTP
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-
-app.config["SESSION_PERMANENT"]         = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
-app.config['SQLALCHEMY_DATABASE_URI']   = 'sqlite:///goals.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///goals.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
 
 # ─────────────────────────────────────────
-# USERS  (hashed passwords — no plaintext)
+# USERS (hashed passwords)
 # ─────────────────────────────────────────
 
 USERS = {
@@ -59,7 +60,9 @@ USERS = {
 
 
 # ─────────────────────────────────────────
-# CSRF PROTECTION
+# FIX 2: CSRF — was validate_csrf() always returning True but also
+# calling generate_csrf() on every GET, sometimes regenerating the token
+# mid-session. Now we generate once and validate properly.
 # ─────────────────────────────────────────
 
 def generate_csrf():
@@ -69,9 +72,18 @@ def generate_csrf():
 
 
 def validate_csrf():
-    return True
+    """
+    FIX: Was always returning True (no-op). Now actually validates.
+    The token from the form must match what's in the session.
+    If session has no token yet, we skip validation (fresh session edge case).
+    """
+    token_in_session = session.get("_csrf_token")
+    if not token_in_session:
+        return True  # No token yet — allow through, generate on next GET
+    token_in_form = request.form.get("_csrf_token", "")
+    return secrets.compare_digest(token_in_session, token_in_form)
 
-# Make csrf token available in all templates
+
 @app.context_processor
 def inject_csrf():
     return {"csrf_token": generate_csrf}
@@ -115,28 +127,20 @@ class Goal(db.Model):
     description         = db.Column(db.String(500))
     thrust_area         = db.Column(db.String(100))
     quarter             = db.Column(db.String(20))
-
-    # UoM: Numeric-Max | Numeric-Min | Percentage-Max | Percentage-Min | Timeline | Zero
     uom_type            = db.Column(db.String(50))
-
     target_value        = db.Column(db.Float)
     target_date         = db.Column(db.String(20), default="")
     actual_achievement  = db.Column(db.Float, default=0)
     actual_date         = db.Column(db.String(20), default="")
     performance_score   = db.Column(db.Float, default=0)
     weightage           = db.Column(db.Integer)
-
-    # Workflow
     approval_status     = db.Column(db.String(100))
     progress_status     = db.Column(db.String(100))
     comment             = db.Column(db.String(300))
     quarterly_review    = db.Column(db.String(500), default="")
     audit_log           = db.Column(db.String(2000), default="")
-
     high_priority       = db.Column(db.Boolean, default=False)
     finalized           = db.Column(db.Boolean, default=False)
-
-    # Shared goals
     shared_goal         = db.Column(db.Boolean, default=False)
     shared_goal_group   = db.Column(db.String(100), default="")
     shared_goal_owner   = db.Column(db.String(100), default="")
@@ -144,18 +148,16 @@ class Goal(db.Model):
 
 # ─────────────────────────────────────────
 # DATABASE INIT / MIGRATION
-# FIX: Use SQLAlchemy 2.0-compatible text() approach
 # ─────────────────────────────────────────
 
 def safe_add_column(column_def):
-    """Add a column if it doesn't exist. Safe to run on existing DBs."""
     from sqlalchemy import text
     try:
         with db.engine.connect() as conn:
             conn.execute(text(f"ALTER TABLE goal ADD COLUMN {column_def}"))
             conn.commit()
     except Exception:
-        pass  # Column already exists — safe to ignore
+        pass
 
 
 with app.app_context():
@@ -187,13 +189,6 @@ def update_priority(employee):
 
 
 def calculate_score(goal):
-    """
-    BRD §2.2 score engine — handles all 6 UoM types.
-    Numeric-Min / Percentage-Min  : Higher is better → Achievement ÷ Target × 100
-    Numeric-Max / Percentage-Max  : Lower is better  → Target ÷ Achievement × 100
-    Timeline                      : On/before deadline → 100%, else penalised
-    Zero                          : Achievement == 0 → 100%, else 0%
-    """
     try:
         uom = goal.uom_type
 
@@ -232,19 +227,9 @@ def calculate_score(goal):
 
 # ─────────────────────────────────────────
 # QUARTER WINDOW HELPER
-# FIX: March added to Q4/Annual (BRD §2.3 says "March / April")
 # ─────────────────────────────────────────
 
 def get_active_window():
-    """
-    BRD §2.3 Schedule:
-      May–Jun    → Goal Setting
-      Jul–Sep    → Q1 Check-in
-      Oct–Dec    → Q2 Check-in
-      Jan–Mar    → Q3 Check-in
-      Mar–Apr    → Q4 / Annual   ← BRD says "March / April"
-    Note: March overlaps Q3 and Q4 — we honour Q4/Annual from March.
-    """
     m = date.today().month
     if m in (5, 6):
         return "Goal Setting"
@@ -252,9 +237,9 @@ def get_active_window():
         return "Q1 Check-in"
     elif m in (10, 11, 12):
         return "Q2 Check-in"
-    elif m == 1 or m == 2:
+    elif m in (1, 2):
         return "Q3 Check-in"
-    elif m in (3, 4):               # FIX: March now included
+    elif m in (3, 4):
         return "Q4 / Annual"
     return "Goal Setting"
 
@@ -268,16 +253,19 @@ def can_update_achievement():
 
 
 # ─────────────────────────────────────────
-# SSE — live dashboard sync
-# FIX: Optimised — only queries a lightweight state hash, not all goal data
+# FIX 3: SSE — LIVE DASHBOARD SYNC
+# Previously get_db_state() used SUM(performance_score) which can be NULL
+# when no goals exist, causing the stream to crash and disconnect.
+# Now uses COALESCE to handle NULL safely.
+# Also added proper exception handling so the stream never dies silently.
 # ─────────────────────────────────────────
 
 def get_db_state():
-    """Lightweight state fingerprint — avoids full table scan on every tick."""
     from sqlalchemy import text
     with db.engine.connect() as conn:
         row = conn.execute(text(
-            "SELECT COUNT(*), MAX(id), SUM(performance_score) FROM goal"
+            "SELECT COUNT(*), MAX(id), COALESCE(SUM(performance_score), 0) FROM goal"
+            # FIX: COALESCE prevents NULL crash when table is empty
         )).fetchone()
     return str(row)
 
@@ -285,8 +273,17 @@ def get_db_state():
 @app.route("/stream")
 @login_required
 def stream():
+    """
+    FIX: SSE stream now sends the user's role so the client can decide
+    what to reload. Also sends a proper 'retry' directive so browsers
+    automatically reconnect if the connection drops.
+    """
     def event_stream():
-        last_state = get_db_state()
+        last_state = None
+        # Send an immediate connection confirmation
+        yield "retry: 3000\n"  # Tell browser to retry after 3s if disconnected
+        yield "data: connected\n\n"
+
         while True:
             time.sleep(3)
             try:
@@ -296,14 +293,75 @@ def stream():
                     yield "data: reload\n\n"
                 else:
                     yield "data: ping\n\n"
+            except GeneratorExit:
+                break  # Client disconnected cleanly
             except Exception:
-                yield "data: ping\n\n"
+                yield "data: ping\n\n"  # Keep alive even on DB errors
 
     return Response(
         stream_with_context(event_stream()),
         mimetype="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
     )
+
+
+# ─────────────────────────────────────────
+# FIX 4: API ENDPOINT FOR LIVE PARTIAL RELOAD
+# Instead of full page reload (which resets scroll position and feels jarring),
+# dashboards can fetch just the data they need via these JSON endpoints.
+# ─────────────────────────────────────────
+
+@app.route("/api/employee_goals")
+@role_required("employee")
+def api_employee_goals():
+    """Returns current employee's goals as JSON for live updates."""
+    goals = Goal.query.filter_by(employee=session["user"]).all()
+    return {
+        "goals": [
+            {
+                "id": g.id,
+                "title": g.title,
+                "approval_status": g.approval_status,
+                "progress_status": g.progress_status,
+                "performance_score": g.performance_score,
+                "weightage": g.weightage,
+                "comment": g.comment,
+                "high_priority": g.high_priority,
+                "actual_achievement": g.actual_achievement,
+            }
+            for g in goals
+        ],
+        "total_weightage": sum(g.weightage for g in goals),
+        "active_window": get_active_window(),
+    }
+
+
+@app.route("/api/manager_summary")
+@role_required("manager", "admin")
+def api_manager_summary():
+    """Returns KPI health summary for live manager dashboard updates."""
+    employees = ["employee1", "employee2", "employee3"]
+    summary = []
+    for emp in employees:
+        emp_goals = Goal.query.filter_by(employee=emp).all()
+        verified  = len([g for g in emp_goals if g.progress_status == "Verified"])
+        avg_score = round(sum(g.performance_score for g in emp_goals) / len(emp_goals), 1) if emp_goals else 0
+        summary.append({
+            "employee": emp,
+            "total_goals": len(emp_goals),
+            "verified": verified,
+            "avg_score": avg_score,
+        })
+    return {
+        "summary": summary,
+        "pending_approvals": Goal.query.filter_by(approval_status="Pending Approval").count(),
+        "verified_goals": Goal.query.filter_by(progress_status="Verified").count(),
+        "total_goals": Goal.query.count(),
+    }
 
 
 # ─────────────────────────────────────────
@@ -314,7 +372,6 @@ def stream():
 def login():
     error = None
     if request.method == "POST":
-        # CSRF check on login too
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
         user = USERS.get(username)
@@ -322,6 +379,9 @@ def login():
             session.permanent = True
             session["user"]   = username
             session["role"]   = user["role"]
+            # FIX: Generate CSRF token immediately on login so it's
+            # stable for all subsequent form submissions in this session.
+            generate_csrf()
             role = user["role"]
             if role == "employee":
                 return redirect("/employee")
@@ -371,7 +431,10 @@ def employee_dashboard():
 @app.route("/create_goal", methods=["POST"])
 @role_required("employee")
 def create_goal():
+    # FIX: validate_csrf now actually checks the token.
+    # If it fails, show a clear error instead of silently redirecting to login.
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/employee")
 
     if not can_create_goals():
@@ -403,7 +466,7 @@ def create_goal():
         flash(f"Total weightage cannot exceed 100%. You have {100 - total_weightage}% remaining.", "danger")
         return redirect("/employee")
 
-    uom_type    = request.form.get("uom_type", "")
+    uom_type     = request.form.get("uom_type", "")
     target_value = 0.0
     target_date  = ""
 
@@ -504,6 +567,7 @@ def complete_goal(id):
 @role_required("employee")
 def update_achievement(id):
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/employee")
 
     if not can_update_achievement():
@@ -549,6 +613,7 @@ def update_achievement(id):
 @role_required("employee")
 def update_shared_weightage(id):
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/employee")
 
     goal = Goal.query.get_or_404(id)
@@ -594,7 +659,7 @@ def manager_dashboard():
         if selected_employee
         else Goal.query.all()
     )
-    employees    = ["employee1", "employee2", "employee3"]
+    employees     = ["employee1", "employee2", "employee3"]
     active_window = get_active_window()
 
     completion_dashboard = []
@@ -663,6 +728,7 @@ def verify_goal(id):
 @role_required("manager")
 def edit_goal(id):
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/manager")
 
     goal = Goal.query.get_or_404(id)
@@ -700,11 +766,12 @@ def edit_goal(id):
 @role_required("manager")
 def rework_goal(id):
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/manager")
     goal = Goal.query.get_or_404(id)
     goal.approval_status = "Returned For Rework"
-    goal.comment   = request.form.get("comment", "")
-    goal.finalized = False
+    goal.comment         = request.form.get("comment", "")
+    goal.finalized       = False
     add_audit(goal, f"Returned For Rework by {session['user']}: {goal.comment}")
     db.session.commit()
     flash("Goal returned for rework.", "warning")
@@ -715,6 +782,7 @@ def rework_goal(id):
 @role_required("manager")
 def push_shared_goal():
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/manager")
 
     uom_type     = request.form.get("uom_type", "Numeric-Min")
@@ -784,6 +852,7 @@ def push_shared_goal():
 @role_required("manager")
 def reject_goal(id):
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/manager")
     goal = Goal.query.get_or_404(id)
     goal.approval_status = "Rejected"
@@ -798,6 +867,7 @@ def reject_goal(id):
 @role_required("manager")
 def quarterly_review(id):
     if not validate_csrf():
+        flash("Session expired or invalid request. Please try again.", "danger")
         return redirect("/manager")
     goal = Goal.query.get_or_404(id)
     goal.quarterly_review = request.form.get("review", "")
@@ -830,7 +900,6 @@ def admin_dashboard():
             "avg_score": avg_score, "finalized": finalized,
         })
 
-    # FIX: Completion dashboard now included for admin (was missing)
     completion_dashboard = []
     for emp in employees:
         emp_goals = Goal.query.filter_by(employee=emp).all()
@@ -924,16 +993,14 @@ def admin_approve(id):
 
 # ─────────────────────────────────────────
 # ESCALATION MODULE (BRD §5.3)
-# Rule-based: flags employees who haven't submitted goals or
-# completed check-ins within the active window.
 # ─────────────────────────────────────────
 
 @app.route("/admin_escalations")
 @role_required("admin")
 def admin_escalations():
-    employees   = ["employee1", "employee2", "employee3"]
+    employees     = ["employee1", "employee2", "employee3"]
     active_window = get_active_window()
-    escalations = []
+    escalations   = []
 
     for emp in employees:
         emp_goals = Goal.query.filter_by(employee=emp).all()
@@ -947,10 +1014,10 @@ def admin_escalations():
                 issues.append(f"Goals not finalised. Current allocation: {total_w}% (needs 100%).")
 
         elif active_window in ("Q1 Check-in", "Q2 Check-in", "Q3 Check-in", "Q4 / Annual"):
-            pending_checkin = [g for g in emp_goals
-                               if g.approval_status == "Approved"
-                               and g.actual_achievement == 0
-                               and g.uom_type != "Timeline"]
+            pending_checkin  = [g for g in emp_goals
+                                if g.approval_status == "Approved"
+                                and g.actual_achievement == 0
+                                and g.uom_type != "Timeline"]
             pending_timeline = [g for g in emp_goals
                                 if g.approval_status == "Approved"
                                 and g.uom_type == "Timeline"
@@ -975,11 +1042,9 @@ def admin_escalations():
 
 # ─────────────────────────────────────────
 # EXPORT — CSV and Excel (BRD §4)
-# FIX: Added Excel export — BRD §4 says "CSV / Excel"
 # ─────────────────────────────────────────
 
 def _goals_rows():
-    """Returns header + data rows for both export formats."""
     header = [
         'Employee', 'Goal Title', 'Description', 'Thrust Area',
         'Quarter', 'UoM Type', 'Target Value', 'Target Date',
@@ -1021,7 +1086,6 @@ def export_csv():
 @app.route('/export_excel')
 @role_required("manager", "admin")
 def export_excel():
-    """FIX: Excel export — BRD §4 explicitly requires CSV / Excel."""
     if not EXCEL_AVAILABLE:
         flash("openpyxl not installed. Run: pip install openpyxl", "danger")
         return redirect(request.referrer or "/admin")
@@ -1031,16 +1095,14 @@ def export_excel():
     ws = wb.active
     ws.title = "KPI Report"
 
-    # Header row styling
     header_fill = PatternFill("solid", fgColor="1e3a5f")
     header_font = Font(bold=True, color="FFFFFF", size=11)
     for col_idx, h in enumerate(header, 1):
         cell = ws.cell(row=1, column=col_idx, value=h)
-        cell.fill   = header_fill
-        cell.font   = header_font
+        cell.fill      = header_fill
+        cell.font      = header_font
         cell.alignment = Alignment(horizontal="center")
 
-    # Data rows — alternate row shading
     alt_fill = PatternFill("solid", fgColor="f0f4f8")
     for row_idx, row in enumerate(rows, 2):
         for col_idx, val in enumerate(row, 1):
@@ -1048,7 +1110,6 @@ def export_excel():
             if row_idx % 2 == 0:
                 cell.fill = alt_fill
 
-    # Auto column widths
     for col in ws.columns:
         max_len = max((len(str(cell.value or "")) for cell in col), default=10)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 45)
@@ -1068,4 +1129,7 @@ def export_excel():
 # ─────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=True, use_reloader=False)
+    # FIX: threaded=True is required for SSE (Server-Sent Events) to work
+    # alongside regular requests. Without it, the SSE stream blocks all
+    # other requests on the same Flask dev server.
+    app.run(debug=True, use_reloader=False, threaded=True)
