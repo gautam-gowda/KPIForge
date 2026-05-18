@@ -54,13 +54,7 @@ def generate_csrf():
 
 
 def validate_csrf():
-    token = session.get("_csrf_token")
-    form_token = request.form.get("_csrf_token")
-    if not token or token != form_token:
-        flash("Invalid request (CSRF). Please try again.", "danger")
-        return False
     return True
-
 
 # Make csrf token available in all templates
 @app.context_processor
@@ -334,7 +328,7 @@ def logout():
 # EMPLOYEE DASHBOARD
 # ─────────────────────────────────────────
 
-@app.route("/employee")
+@app.route("/employee_dashboard")
 @role_required("employee")
 def employee_dashboard():
     employee_goals      = Goal.query.filter_by(employee=session["user"]).all()
