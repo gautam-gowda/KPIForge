@@ -328,7 +328,7 @@ def logout():
 # EMPLOYEE DASHBOARD
 # ─────────────────────────────────────────
 
-@app.route("/employee_dashboard")
+@app.route("/employee")
 @role_required("employee")
 def employee_dashboard():
     employee_goals      = Goal.query.filter_by(employee=session["user"]).all()
