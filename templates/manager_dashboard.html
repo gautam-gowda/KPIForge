@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>KPIFlow Enterprise — Manager</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+
+        body {
+            background: linear-gradient(to bottom right, #020617, #0f172a);
+            color: white;
+            font-family: Arial;
+            min-height: 100vh;
+        }
+
+        .dashboard-container { padding: 35px; }
+
+        .card-box {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 22px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+            transition: 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .card-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 14px 32px rgba(59,130,246,0.18);
+        }
+
+        .analytics-card { text-align: center; }
+
+        .analytics-card h2 {
+            font-size: 52px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .employee-pill {
+            background: #334155;
+            padding: 10px 18px;
+            border-radius: 20px;
+            margin-right: 10px;
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            transition: 0.25s ease;
+            font-weight: bold;
+        }
+
+        .employee-pill:hover,
+        .employee-pill.active { background: #2563eb; color: white; }
+
+        table {
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .table-hover tbody tr:hover { background: #334155; }
+
+        .approved-row  { border-left: 5px solid #22c55e; }
+        .pending-row   { border-left: 5px solid #facc15; }
+        .shared-row    { border-left: 5px solid #a855f7; }
+        .rework-row    { border-left: 5px solid #f97316; }
+        .rejected-row  { border-left: 5px solid #ef4444; }
+        .dimmed-row    { opacity: 0.55; filter: grayscale(25%); }
+
+        .priority-badge {
+            background: red;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: inline-block;
+            margin-top: 8px;
+            font-weight: bold;
+        }
+
+        .shared-badge {
+            background: #9333ea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: inline-block;
+            margin-top: 8px;
+            font-weight: bold;
+        }
+
+        .audit-box {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 12px;
+            font-size: 12px;
+            max-width: 220px;
+            max-height: 90px;
+            overflow: auto;
+        }
+
+        .review-box {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 12px;
+            min-width: 160px;
+        }
+
+        input, textarea, select {
+            background: #334155 !important;
+            border: none !important;
+            color: white !important;
+            border-radius: 12px !important;
+            padding: 10px !important;
+        }
+
+        input[type="date"] { color-scheme: dark; }
+
+        textarea { min-height: 80px; }
+        select option { background: #1e293b; }
+
+        .btn {
+            border-radius: 12px;
+            font-weight: bold;
+            transition: 0.25s ease;
+        }
+
+        .btn:hover { transform: scale(1.03); }
+
+        .action-box {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 170px;
+        }
+
+        .status-badge {
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .verified   { background: #16a34a; }
+        .awaiting   { background: #facc15; color: black; }
+        .completed  { background: #2563eb; }
+        .ontrack    { background: #0891b2; }
+        .rework     { background: #f97316; }
+
+        .completion-card { border-left: 5px solid #3b82f6; }
+
+        /* FIX: Window badge */
+        .window-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .window-badge.goal-setting { background: #16a34a; }
+        .window-badge.checkin      { background: #d97706; }
+        .window-badge.annual       { background: #7c3aed; }
+
+        .uom-hint {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 3px;
+        }
+
+        .live-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%   { opacity: 1; }
+            50%  { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="dashboard-container">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+
+        <div>
+            <h2>KPIFlow Enterprise 🚀</h2>
+            <!-- FIX: Show active window in manager top bar -->
+            <span class="window-badge
+                {% if active_window == 'Goal Setting' %}goal-setting
+                {% elif active_window == 'Q4 / Annual' %}annual
+                {% else %}checkin{% endif %}">
+                📅 {{ active_window }}
+            </span>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <span style="color:#94a3b8; font-size:13px;">
+                <span class="live-dot"></span>Live Sync
+            </span>
+            <a href="/export_csv" class="btn btn-success">Export Report 📊</a>
+            <a href="/logout" class="btn btn-danger">Logout</a>
+        </div>
+
+    </div>
+
+    <!-- FLASH -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ANALYTICS -->
+    <div class="row g-4 mb-4">
+
+        <div class="col-md-3">
+            <div class="card-box analytics-card">
+                <h4>Total Goals</h4>
+                <h2>{{ total_goals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card-box analytics-card">
+                <h4 style="color:#facc15;">Pending Approvals</h4>
+                <h2 style="color:#facc15;">{{ pending_approvals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card-box analytics-card">
+                <h4 style="color:#22c55e;">Verified Goals</h4>
+                <h2 style="color:#22c55e;">{{ verified_goals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card-box analytics-card">
+                <h4 style="color:#38bdf8;">KPI Health</h4>
+                <h2 style="color:#38bdf8;">{{ kpi_health }}%</h2>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FIX: COMPLETION DASHBOARD — tracks check-in completion per employee -->
+    <div class="card-box completion-card">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>Completion Dashboard 📊</h3>
+            <span class="badge bg-secondary">Window: {{ active_window }}</span>
+        </div>
+
+        <div class="row g-3">
+            {% for item in completion_dashboard %}
+            <div class="col-md-4">
+                <div class="review-box">
+                    <h5 style="color:#93c5fd;">{{ item.employee }}</h5>
+                    {% if item.status == "Completed" %}
+                    <span class="status-badge verified">All Goals Verified ✅</span>
+                    {% elif item.status == "In Progress" %}
+                    <span class="status-badge ontrack">In Progress 🚀</span>
+                    {% elif item.status == "Not Started" %}
+                    <span class="badge bg-secondary">No Goals Yet</span>
+                    {% else %}
+                    <span class="status-badge awaiting">Check-in Pending</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <!-- FIX: PUSH SHARED GOAL — with UoM selector and Timeline support -->
+    <div class="card-box">
+
+        <h3 class="mb-1">Push Shared Goal 🌐</h3>
+        <p class="text-muted mb-4" style="font-size:13px;">
+            Shared goals are pushed to all employees. Title and Target are read-only for recipients.
+            Recipients can adjust weightage (BRD §2.1).
+        </p>
+
+        <form action="/push_shared_goal" method="POST" id="sharedGoalForm">
+
+            <div class="row g-3 mb-3">
+
+                <div class="col-md-4">
+                    <input type="text" name="title" placeholder="Shared Goal Title" required>
+                </div>
+
+                <div class="col-md-8">
+                    <textarea name="description" placeholder="Shared Goal Description" required></textarea>
+                </div>
+
+            </div>
+
+            <div class="row g-3">
+
+                <!-- FIX: UoM selector for shared goals -->
+                <div class="col-md-2">
+                    <select name="uom_type" id="sharedUomSelect" required onchange="toggleSharedTarget()">
+                        <option value="">Unit of Measure</option>
+                        <optgroup label="Numeric">
+                            <option value="Numeric-Min">Numeric — Higher is Better</option>
+                            <option value="Numeric-Max">Numeric — Lower is Better</option>
+                        </optgroup>
+                        <optgroup label="Percentage">
+                            <option value="Percentage-Min">% — Higher is Better</option>
+                            <option value="Percentage-Max">% — Lower is Better</option>
+                        </optgroup>
+                        <option value="Timeline">Timeline (Date-based)</option>
+                        <option value="Zero">Zero-based</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2" id="sharedTargetNumDiv">
+                    <input type="number" step="0.01" name="target" placeholder="Target Value">
+                </div>
+
+                <div class="col-md-2" id="sharedTargetDateDiv" style="display:none;">
+                    <input type="date" name="target_date" placeholder="Target Date">
+                    <div class="uom-hint">Deadline for completion</div>
+                </div>
+
+                <div class="col-md-2">
+                    <input type="text" name="thrust" placeholder="Thrust Area" required>
+                </div>
+
+                <div class="col-md-2">
+                    <select name="quarter" required>
+                        <option value="">Quarter</option>
+                        <option>Q1</option>
+                        <option>Q2</option>
+                        <option>Q3</option>
+                        <option>Q4</option>
+                        <option>Annual</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100 h-100">Push Shared Goal 🌐</button>
+                </div>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <!-- EMPLOYEE FILTERS -->
+    <div class="card-box">
+
+        <h4 class="mb-4">Employee Filters 👨‍💼</h4>
+
+        <a href="/manager" class="employee-pill {% if not selected_employee %}active{% endif %}">
+            Show All
+        </a>
+
+        {% for employee in employees %}
+        <a href="/manager?employee={{ employee }}"
+           class="employee-pill {% if selected_employee == employee %}active{% endif %}">
+            {{ employee }}
+        </a>
+        {% endfor %}
+
+    </div>
+
+    <!-- KPI TABLE -->
+    <div class="card-box">
+
+        <h3 class="mb-4">Workforce KPI Governance 🧠</h3>
+
+        <div class="table-responsive">
+
+        <table class="table table-dark table-hover align-middle">
+
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Goal</th>
+                    <th>Quarter</th>
+                    <th>UoM</th>
+                    <th>Target</th>
+                    <th>Weight</th>
+                    <th>Achievement</th>
+                    <th>Score</th>
+                    <th>Status</th>
+                    <th>Check-in Comment</th>
+                    <th>Audit</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for goal in goals %}
+
+                <tr class="
+                    {% if goal.approval_status == 'Approved' and goal.progress_status not in ('Returned For Rework',) %}approved-row{% endif %}
+                    {% if goal.approval_status == 'Pending Approval' %}pending-row{% endif %}
+                    {% if goal.shared_goal %}shared-row{% endif %}
+                    {% if goal.approval_status == 'Returned For Rework' %}rework-row dimmed-row{% endif %}
+                    {% if goal.approval_status == 'Rejected' %}rejected-row dimmed-row{% endif %}
+                ">
+
+                    <td><strong>{{ goal.employee }}</strong></td>
+
+                    <td>
+                        <strong>{{ goal.title }}</strong><br>
+                        <small style="color:#94a3b8;">{{ goal.description[:50] }}{% if goal.description|length > 50 %}…{% endif %}</small><br>
+                        {% if goal.high_priority %}
+                        <span class="priority-badge">⭐ HIGH PRIORITY</span>
+                        {% endif %}
+                        {% if goal.shared_goal %}
+                        <span class="shared-badge">🌐 Shared Goal</span>
+                        {% endif %}
+                        {% if goal.finalized %}
+                        <span class="badge bg-secondary ms-1">🔒 Locked</span>
+                        {% endif %}
+                    </td>
+
+                    <td>{{ goal.quarter }}</td>
+
+                    <!-- FIX: Show BRD UoM label -->
+                    <td>
+                        <span class="badge bg-info text-dark" style="font-size:11px;">
+                            {{ goal.uom_type }}
+                        </span>
+                    </td>
+
+                    <!-- FIX: Show target date for Timeline -->
+                    <td>
+                        {% if goal.uom_type == "Timeline" %}
+                            <span style="font-size:12px;">📅 {{ goal.target_date or "—" }}</span>
+                        {% else %}
+                            {{ goal.target_value }}
+                        {% endif %}
+                    </td>
+
+                    <td><span class="badge bg-primary">{{ goal.weightage }}%</span></td>
+
+                    <!-- FIX: Show actual date for Timeline goals -->
+                    <td>
+                        {% if goal.uom_type == "Timeline" %}
+                            <span style="font-size:12px;">
+                                {% if goal.actual_date %}📅 {{ goal.actual_date }}
+                                {% else %}Not entered{% endif %}
+                            </span>
+                        {% else %}
+                            {{ goal.actual_achievement }}
+                        {% endif %}
+                    </td>
+
+                    <td><span class="badge bg-success">{{ goal.performance_score }}%</span></td>
+
+                    <!-- FIX: Full status set -->
+                    <td>
+                        {% if goal.progress_status == "Verified" %}
+                            <span class="status-badge verified">Verified ✅</span>
+                        {% elif goal.progress_status == "Completed" %}
+                            <span class="status-badge completed">Completed 🎯</span>
+                            <div class="uom-hint" style="color:#facc15;">Awaiting your verification</div>
+                        {% elif goal.progress_status == "Awaiting Verification" %}
+                            <span class="status-badge awaiting">Awaiting Verification</span>
+                        {% elif goal.progress_status == "On Track" %}
+                            <span class="status-badge ontrack">On Track 🚀</span>
+                        {% elif goal.approval_status == "Returned For Rework" %}
+                            <span class="status-badge rework">Rework</span>
+                        {% elif goal.approval_status == "Rejected" %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% elif goal.approval_status == "Pending Approval" %}
+                            <span class="badge bg-warning text-dark">Pending Approval</span>
+                        {% else %}
+                            {{ goal.progress_status }}
+                        {% endif %}
+                    </td>
+
+                    <!-- QUARTERLY CHECK-IN COMMENT -->
+                    <td>
+                        <form action="/quarterly_review/{{ goal.id }}" method="POST">
+                            <textarea name="review"
+                                      placeholder="Add check-in comment…"
+                                      style="min-height:70px; font-size:12px;">{{ goal.quarterly_review }}</textarea>
+                            <button class="btn btn-info btn-sm mt-2 w-100">Save Comment</button>
+                        </form>
+                        {% if goal.quarterly_review %}
+                        <div class="review-box mt-2" style="font-size:11px; color:#94a3b8;">
+                            Saved: {{ goal.quarterly_review[:60] }}{% if goal.quarterly_review|length > 60 %}…{% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+
+                    <!-- AUDIT -->
+                    <td>
+                        <div class="audit-box">{{ goal.audit_log }}</div>
+                    </td>
+
+                    <!-- ACTIONS -->
+                    <td>
+                        <div class="action-box">
+
+                            <!-- EDIT (inline — BRD: manager can edit during approval) -->
+                            <!-- FIX: Shared goal title/target locked; only non-shared goals show target edit -->
+                            <form action="/edit_goal/{{ goal.id }}" method="POST">
+                                {% if not goal.shared_goal %}
+                                    {% if goal.uom_type == "Timeline" %}
+                                    <input type="date" name="target_date"
+                                           value="{{ goal.target_date }}"
+                                           class="mb-2" style="font-size:12px;">
+                                    <input type="hidden" name="target" value="{{ goal.target_value }}">
+                                    {% else %}
+                                    <input type="number" step="0.01" name="target"
+                                           placeholder="Edit Target"
+                                           value="{{ goal.target_value }}"
+                                           required class="mb-2" style="font-size:12px;">
+                                    {% endif %}
+                                {% else %}
+                                <!-- Shared goal: target locked, only weightage editable -->
+                                <div class="uom-hint mb-1" style="color:#a855f7;">
+                                    🌐 Shared — target is read-only
+                                </div>
+                                <input type="hidden" name="target" value="{{ goal.target_value }}">
+                                {% endif %}
+
+                                <input type="number" name="weightage"
+                                       placeholder="Edit Weightage"
+                                       value="{{ goal.weightage }}"
+                                       required class="mb-2" style="font-size:12px;">
+                                <button class="btn btn-warning btn-sm w-100">Update Goal</button>
+                            </form>
+
+                            <!-- APPROVE -->
+                            {% if goal.approval_status == "Pending Approval" %}
+                            <a href="/approve_goal/{{ goal.id }}"
+                               class="btn btn-success btn-sm"
+                               onclick="return confirm('Approve this goal?')">
+                                Approve Goal ✅
+                            </a>
+                            {% endif %}
+
+                            <!-- VERIFY — shown when employee marks Completed -->
+                            {% if goal.progress_status in ("Completed", "Awaiting Verification") %}
+                            <a href="/verify_goal/{{ goal.id }}"
+                               class="btn btn-primary btn-sm"
+                               onclick="return confirm('Verify this goal as complete?')">
+                                Verify Goal 🔍
+                            </a>
+                            {% endif %}
+
+                            <!-- REWORK -->
+                            <form action="/rework_goal/{{ goal.id }}" method="POST">
+                                <input type="text" name="comment"
+                                       placeholder="Rework reason (required)"
+                                       required class="mb-2" style="font-size:12px;">
+                                <button class="btn btn-danger btn-sm w-100">Return For Rework</button>
+                            </form>
+
+                            <!-- REJECT -->
+                            <form action="/reject_goal/{{ goal.id }}" method="POST">
+                                <input type="text" name="comment"
+                                       placeholder="Rejection reason (required)"
+                                       required class="mb-2" style="font-size:12px;">
+                                <button class="btn btn-outline-danger btn-sm w-100">Reject Goal ❌</button>
+                            </form>
+
+                        </div>
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<footer>KPIFlow Enterprise • Workforce Governance Platform</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+
+// FIX: Shared goal push form — toggle target field for Timeline UoM
+function toggleSharedTarget() {
+    const uom     = document.getElementById('sharedUomSelect').value;
+    const numDiv  = document.getElementById('sharedTargetNumDiv');
+    const dateDiv = document.getElementById('sharedTargetDateDiv');
+
+    if (uom === 'Timeline') {
+        numDiv.style.display  = 'none';
+        dateDiv.style.display = 'block';
+        numDiv.querySelector('input').removeAttribute('required');
+        dateDiv.querySelector('input').setAttribute('required', 'required');
+    } else {
+        numDiv.style.display  = 'block';
+        dateDiv.style.display = 'none';
+        numDiv.querySelector('input').setAttribute('required', 'required');
+        dateDiv.querySelector('input').removeAttribute('required');
+    }
+}
+
+// ── SERVER-SENT EVENTS — live sync ──────────────────────────────────
+let isTyping = false;
+
+document.querySelectorAll("input, textarea, select").forEach(el => {
+    el.addEventListener("focus", () => isTyping = true);
+    el.addEventListener("blur",  () => isTyping = false);
+});
+
+function connectSSE() {
+    const source = new EventSource("/stream");
+    source.onmessage = function(e) {
+        if (e.data === "reload" && !isTyping) {
+            window.location.reload();
+        }
+    };
+    source.onerror = function() {
+        source.close();
+        setTimeout(connectSSE, 5000);
+    };
+}
+
+connectSSE();
+
+</script>
+
+</body>
+
+</html>

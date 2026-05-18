@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>KPIFlow Enterprise — Admin Control</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+
+        /* ── ADMIN IDENTITY: Charcoal Black + Crimson Red command-centre theme ── */
+        :root {
+            --bg-root:      #0a0a0a;
+            --bg-surface:   #111111;
+            --bg-card:      #1a1a1a;
+            --bg-card-alt:  #1f1f1f;
+            --border:       #2a2a2a;
+            --border-hi:    #8b0000;
+            --gold:         #dc143c;
+            --gold-dim:     #8b0000;
+            --gold-glow:    rgba(220,20,60,0.18);
+            --gold-pulse:   rgba(220,20,60,0.08);
+            --amber:        #ff2d55;
+            --red:          #ff4545;
+            --green:        #22d67a;
+            --blue:         #c084fc;
+            --purple:       #38bdf8;
+            --orange:       #fb923c;
+            --text-primary: #f0f0f0;
+            --text-muted:   #6b6b6b;
+            --text-dim:     #2a2a2a;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(to bottom right, #0a0a0a, #141414);
+            color: var(--text-primary);
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+        }
+
+        .dashboard-container { padding: 35px; }
+
+        .card-box {
+            background: #1e1e1e;
+            padding: 30px;
+            border-radius: 22px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            transition: 0.3s ease;
+        }
+
+        .card-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 14px 32px rgba(220,20,60,0.15);
+        }
+
+        .analytics-card { text-align: center; }
+
+        .analytics-card h2 {
+            font-size: 52px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* ── TOP BAR ── */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .brand-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #f0f0f0;
+        }
+
+        .admin-chip {
+            background: var(--gold);
+            color: white;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            margin-left: 10px;
+            font-family: Arial, sans-serif;
+        }
+
+        .window-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 6px;
+        }
+
+        .window-badge.goal-setting { background: #16a34a; }
+        .window-badge.checkin      { background: var(--gold); }
+        .window-badge.annual       { background: #7c3aed; }
+
+        .live-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%   { opacity: 1; }
+            50%  { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* ── EMPLOYEE PILLS (reused for filter-style items) ── */
+        .employee-pill {
+            background: #2a2a2a;
+            padding: 10px 18px;
+            border-radius: 20px;
+            margin-right: 10px;
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            transition: 0.25s ease;
+            font-weight: bold;
+        }
+
+        .employee-pill:hover,
+        .employee-pill.active { background: var(--gold); color: white; }
+
+        /* ── COMPLETION GRID ── */
+        .completion-card {
+            border-left: 5px solid var(--gold);
+            background: #1a1a1a;
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        /* ── CHART CARDS ── */
+        .chart-card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 14px;
+            padding: 20px;
+        }
+
+        .chart-card h6 {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 14px;
+        }
+
+        /* ── EMPLOYEE SCORECARD ── */
+        .emp-card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            padding: 22px;
+        }
+
+        .emp-card:hover { border-color: var(--gold); }
+
+        .emp-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid #2a2a2a;
+            font-size: 12px;
+        }
+
+        .emp-stat:last-of-type { border-bottom: none; }
+        .emp-stat .key { color: var(--text-muted); }
+        .emp-stat .val { font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', monospace; }
+
+        .score-bar {
+            height: 4px;
+            background: #2a2a2a;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .score-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: linear-gradient(90deg, var(--gold-dim), var(--amber));
+            transition: width 0.8s ease;
+        }
+
+        /* ── TABLE ── */
+        table {
+            border-radius: 18px;
+            overflow: hidden;
+        }
+
+        .table-hover tbody tr:hover { background: #2a2a2a; }
+
+        .row-approved  { border-left: 5px solid #22c55e; }
+        .row-pending   { border-left: 5px solid var(--gold); }
+        .row-rework    { border-left: 5px solid #fb923c; opacity: 0.75; }
+        .row-rejected  { border-left: 5px solid #ff4545; opacity: 0.65; }
+        .row-shared    { border-left: 5px solid #38bdf8; }
+
+        .priority-badge {
+            background: red;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: inline-block;
+            margin-top: 8px;
+            font-weight: bold;
+        }
+
+        .shared-badge {
+            background: #1d4ed8;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: inline-block;
+            margin-top: 8px;
+            font-weight: bold;
+        }
+
+        .audit-box {
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 14px;
+            padding: 12px;
+            font-size: 12px;
+            max-width: 220px;
+            max-height: 90px;
+            overflow: auto;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* ── STATUS BADGES ── */
+        .status-badge {
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+        }
+
+        .verified   { background: #16a34a; }
+        .awaiting   { background: var(--gold); color: white; }
+        .completed  { background: #2563eb; }
+        .ontrack    { background: #0891b2; }
+        .rework-st  { background: #f97316; }
+        .pending-st { background: var(--gold); }
+        .no-goals-st{ background: #3a3a3a; color: #6b6b6b; }
+
+        /* ── BUTTONS ── */
+        .btn {
+            border-radius: 12px;
+            font-weight: bold;
+            transition: 0.25s ease;
+        }
+
+        .btn:hover { transform: scale(1.03); }
+
+        .btn-danger-soft {
+            background: rgba(255,69,69,0.15);
+            color: #ff4545;
+            border: 1px solid rgba(255,69,69,0.3);
+        }
+
+        .btn-danger-soft:hover { background: rgba(255,69,69,0.25); }
+
+        .btn-warning-soft {
+            background: rgba(220,20,60,0.15);
+            color: var(--gold);
+            border: 1px solid rgba(220,20,60,0.3);
+        }
+
+        .btn-warning-soft:hover { background: rgba(220,20,60,0.25); }
+
+        .btn-green-soft {
+            background: rgba(34,214,122,0.15);
+            color: #22d67a;
+            border: 1px solid rgba(34,214,122,0.3);
+        }
+
+        .btn-green-soft:hover { background: rgba(34,214,122,0.25); }
+
+        .btn-outline-export {
+            background: transparent;
+            color: #22d67a;
+            border: 1px solid rgba(34,214,122,0.4);
+            padding: 8px 16px;
+        }
+
+        .btn-logout {
+            background: transparent;
+            color: #ff4545;
+            border: 1px solid rgba(255,69,69,0.3);
+            padding: 8px 16px;
+        }
+
+        .action-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 140px;
+        }
+
+        /* ── CHIPS / BADGES ── */
+        .uom-chip {
+            background: rgba(56,189,248,0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(56,189,248,0.3);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .score-chip {
+            background: rgba(34,214,122,0.15);
+            color: #22d67a;
+            border: 1px solid rgba(34,214,122,0.3);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .weight-chip {
+            background: rgba(220,20,60,0.15);
+            color: var(--gold);
+            border: 1px solid rgba(220,20,60,0.3);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .sbadge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .sbadge.verified   { background: rgba(34,214,122,0.15);  color: #22d67a;  border: 1px solid rgba(34,214,122,0.3); }
+        .sbadge.in-prog    { background: rgba(56,189,248,0.15);   color: #38bdf8;  border: 1px solid rgba(56,189,248,0.3); }
+        .sbadge.pending    { background: rgba(220,20,60,0.15);    color: var(--gold); border: 1px solid rgba(220,20,60,0.3); }
+        .sbadge.no-goals   { background: rgba(60,60,60,0.3);      color: #6b6b6b; border: 1px solid #2a2a2a; }
+        .sbadge.rejected   { background: rgba(255,69,69,0.15);    color: #ff4545; border: 1px solid rgba(255,69,69,0.3); }
+        .sbadge.rework     { background: rgba(251,146,60,0.15);   color: #fb923c; border: 1px solid rgba(251,146,60,0.3); }
+        .sbadge.approved   { background: rgba(34,214,122,0.15);   color: #22d67a; border: 1px solid rgba(34,214,122,0.3); }
+        .sbadge.awaiting   { background: rgba(220,20,60,0.15);    color: var(--gold); border: 1px solid rgba(220,20,60,0.3); }
+        .sbadge.shared     { background: rgba(56,189,248,0.15);   color: #38bdf8; border: 1px solid rgba(56,189,248,0.3); }
+        .sbadge.locked     { background: rgba(60,60,60,0.3);      color: #6b6b6b; border: 1px solid #2a2a2a; }
+
+        /* ── SECTION LABEL ── */
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--gold);
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 14px;
+            opacity: 0.8;
+        }
+
+        /* ── DARK TABLE OVERRIDE ── */
+        .table-dark { --bs-table-bg: #1a1a1a; }
+        .table-dark thead { background: #111111; }
+        .table-dark thead th {
+            color: var(--gold);
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-family: 'JetBrains Mono', monospace;
+            border-bottom: 1px solid #8b0000;
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #0a0a0a; }
+        ::-webkit-scrollbar-thumb { background: #8b0000; border-radius: 3px; }
+
+        /* ── ALERT ── */
+        .alert { border-radius: 12px; font-size: 13px; }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-family: 'JetBrains Mono', monospace;
+            border-top: 1px solid #2a2a2a;
+            margin-top: 16px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="dashboard-container">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+
+        <div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="brand-name">KPIFlow Enterprise 🚀</span>
+                <span class="admin-chip">⚙ ADMIN</span>
+            </div>
+            <span class="window-badge
+                {% if active_window == 'Goal Setting' %}goal-setting
+                {% elif active_window == 'Q4 / Annual' %}annual
+                {% else %}checkin{% endif %}">
+                📅 {{ active_window }}
+            </span>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <span style="color:#6b6b6b; font-size:13px;">
+                <span class="live-dot"></span>Live Sync
+            </span>
+            <a href="/export_csv" class="btn btn-outline-export">Export CSV 📊</a>
+            <a href="/logout"     class="btn btn-logout">Logout</a>
+        </div>
+
+    </div>
+
+    <!-- FLASH -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show mb-3">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ANALYTICS STAT TILES -->
+    <div class="row g-4 mb-4">
+
+        <div class="col-md-2">
+            <div class="card-box analytics-card">
+                <h4>Total Goals</h4>
+                <h2 style="color:#ff2d55;">{{ total_goals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="card-box analytics-card">
+                <h4 style="color:var(--gold);">Pending</h4>
+                <h2 style="color:var(--gold);">{{ pending_approvals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="card-box analytics-card">
+                <h4 style="color:#22d67a;">Verified</h4>
+                <h2 style="color:#22d67a;">{{ verified_goals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="card-box analytics-card">
+                <h4 style="color:#ff4545;">Rejected</h4>
+                <h2 style="color:#ff4545;">{{ rejected_goals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="card-box analytics-card">
+                <h4 style="color:#fb923c;">Rework</h4>
+                <h2 style="color:#fb923c;">{{ rework_goals }}</h2>
+            </div>
+        </div>
+
+        <div class="col-md-2">
+            <div class="card-box analytics-card">
+                <h4 style="color:#38bdf8;">Shared</h4>
+                <h2 style="color:#38bdf8;">{{ shared_goals }}</h2>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- COMPLETION DASHBOARD -->
+    <div class="section-label">Completion Dashboard — {{ active_window }}</div>
+
+    <div class="card-box" style="border-left: 5px solid var(--gold);">
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>Check-in Completion Status 📋</h3>
+            <span class="badge bg-secondary">Window: {{ active_window }}</span>
+        </div>
+
+        <div class="row g-3">
+            {% for item in completion_dashboard %}
+            <div class="col-md-4">
+                <div class="completion-card">
+                    <h5 style="color:#f87171; font-family:'JetBrains Mono',monospace;">{{ item.employee }}</h5>
+                    <div style="font-size:11px; color:#6b6b6b; margin-bottom:8px;">
+                        {{ item.total_goals }} goal{{ 's' if item.total_goals != 1 }} &nbsp;·&nbsp;
+                        {{ item.verified }}/{{ item.total_goals }} verified
+                    </div>
+
+                    {% if item.status == "Completed" %}
+                        <span class="status-badge verified">All Goals Verified ✅</span>
+                    {% elif item.status == "In Progress" %}
+                        <span class="status-badge ontrack">In Progress 🚀</span>
+                    {% elif item.status == "Not Started" %}
+                        <span class="badge bg-secondary">No Goals Yet</span>
+                    {% else %}
+                        <span class="status-badge awaiting">Check-in Pending</span>
+                    {% endif %}
+
+                    {% if item.avg_score is defined %}
+                    <div class="score-bar mt-2">
+                        <div class="score-bar-fill" style="width: {{ [item.avg_score, 100]|min }}%;"></div>
+                    </div>
+                    <div style="font-size:10px; color:#6b6b6b; margin-top:4px; font-family:'JetBrains Mono',monospace;">
+                        Avg score: {{ item.avg_score }}%
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <!-- ANALYTICS CHARTS -->
+    <div class="section-label">KPI Intelligence Analytics</div>
+
+    <div class="card-box">
+
+        <h3 class="mb-4">Analytics Dashboard 📈</h3>
+
+        <div class="row g-3 mb-3">
+
+            <div class="col-md-4">
+                <div class="chart-card">
+                    <h6>Approval Distribution</h6>
+                    <div style="height:220px; position:relative;">
+                        <canvas id="approvalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="chart-card">
+                    <h6>Employee Avg KPI Score</h6>
+                    <div style="height:220px; position:relative;">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="chart-card">
+                    <h6>Goal Distribution by Thrust Area</h6>
+                    <div style="height:220px; position:relative;">
+                        <canvas id="thrustChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row g-3">
+
+            <div class="col-md-4">
+                <div class="chart-card">
+                    <h6>UoM Type Breakdown</h6>
+                    <div style="height:200px; position:relative;">
+                        <canvas id="uomChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="chart-card">
+                    <h6>Progress Status Distribution</h6>
+                    <div style="height:200px; position:relative;">
+                        <canvas id="progressChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="chart-card">
+                    <h6>Weightage Allocation (% of 100)</h6>
+                    <div style="height:200px; position:relative;">
+                        <canvas id="weightageChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- EMPLOYEE SCORECARD -->
+    <div class="section-label">Employee Scorecard</div>
+
+    <div class="card-box">
+
+        <h3 class="mb-4">Employee Overview 👥</h3>
+
+        <div class="row g-3">
+            {% for emp in employee_summary %}
+            <div class="col-md-4">
+                <div class="emp-card">
+
+                    <h5 style="color:#f87171; font-family:'JetBrains Mono',monospace; margin-bottom:16px;">
+                        {{ emp.employee }}
+                    </h5>
+
+                    <div class="emp-stat">
+                        <span class="key">Total Goals</span>
+                        <span class="val">{{ emp.total_goals }}</span>
+                    </div>
+
+                    <div class="emp-stat">
+                        <span class="key">KPI Allocation</span>
+                        <span class="val"
+                            style="color: {% if emp.total_weightage == 100 %}#22d67a{% else %}var(--gold){% endif %}">
+                            {{ emp.total_weightage }}%
+                            {% if emp.total_weightage == 100 %} ✅{% endif %}
+                        </span>
+                    </div>
+
+                    <div class="emp-stat">
+                        <span class="key">Verified</span>
+                        <span class="val">{{ emp.verified }} / {{ emp.total_goals }}</span>
+                    </div>
+
+                    <div class="emp-stat">
+                        <span class="key">Avg Score</span>
+                        <span class="val" style="color:#ff2d55;">{{ emp.avg_score }}%</span>
+                    </div>
+
+                    <div class="emp-stat">
+                        <span class="key">KPI Cycle</span>
+                        <span class="val">
+                            {% if emp.finalized %}
+                            <span style="color:#22d67a;">Finalized 🔒</span>
+                            {% else %}
+                            <span style="color:var(--gold);">Open</span>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="score-bar">
+                        <div class="score-bar-fill" style="width: {{ [emp.avg_score, 100]|min }}%;"></div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3 flex-wrap">
+                        <a href="/admin_reset_cycle/{{ emp.employee }}"
+                           class="btn btn-warning-soft btn-sm"
+                           onclick="return confirm('Reset KPI cycle for {{ emp.employee }}?')">
+                            Reset Cycle
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <!-- GOAL REGISTRY TABLE -->
+    <div class="section-label">All Goals — Full Control</div>
+
+    <div class="card-box">
+
+        <h3 class="mb-4">Goal Registry 🛡️</h3>
+
+        <div class="table-responsive">
+
+        <table class="table table-dark table-hover align-middle">
+
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Goal</th>
+                    <th>Quarter</th>
+                    <th>UoM</th>
+                    <th>Target</th>
+                    <th>Weight</th>
+                    <th>Achievement</th>
+                    <th>Score</th>
+                    <th>Approval</th>
+                    <th>Progress</th>
+                    <th>Audit Log</th>
+                    <th>Admin Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for goal in goals %}
+
+                <tr class="
+                    {% if goal.approval_status == 'Approved' %}row-approved{% endif %}
+                    {% if goal.approval_status == 'Pending Approval' %}row-pending{% endif %}
+                    {% if goal.approval_status == 'Returned For Rework' %}row-rework{% endif %}
+                    {% if goal.approval_status == 'Rejected' %}row-rejected{% endif %}
+                    {% if goal.shared_goal %}row-shared{% endif %}
+                ">
+
+                    <td>
+                        <strong style="font-family:'JetBrains Mono',monospace; font-size:12px;">
+                            {{ goal.employee }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        <strong style="font-size:12.5px;">{{ goal.title }}</strong><br>
+                        <small style="color:#6b6b6b;">
+                            {{ goal.description[:55] }}{% if goal.description|length > 55 %}…{% endif %}
+                        </small><br>
+                        {% if goal.high_priority %}
+                        <span class="priority-badge">★ HIGH PRIORITY</span>
+                        {% endif %}
+                        {% if goal.shared_goal %}
+                        <span class="shared-badge">🌐 Shared Goal</span>
+                        {% endif %}
+                        {% if goal.finalized %}
+                        <span class="badge bg-secondary ms-1">🔒 Locked</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="font-family:'JetBrains Mono',monospace; font-size:11px;">{{ goal.quarter }}</td>
+
+                    <td><span class="uom-chip">{{ goal.uom_type }}</span></td>
+
+                    <td style="font-size:12px;">
+                        {% if goal.uom_type == "Timeline" %}
+                            <span style="color:#38bdf8;">📅 {{ goal.target_date or "—" }}</span>
+                        {% else %}
+                            {{ goal.target_value }}
+                        {% endif %}
+                    </td>
+
+                    <td><span class="weight-chip">{{ goal.weightage }}%</span></td>
+
+                    <td style="font-size:12px;">
+                        {% if goal.uom_type == "Timeline" %}
+                            <span style="color:#38bdf8;">
+                                {% if goal.actual_date %}📅 {{ goal.actual_date }}
+                                {% else %}Not entered{% endif %}
+                            </span>
+                        {% else %}
+                            {{ goal.actual_achievement }}
+                        {% endif %}
+                    </td>
+
+                    <td><span class="score-chip">{{ goal.performance_score }}%</span></td>
+
+                    <td>
+                        {% if goal.approval_status == "Approved" %}
+                            <span class="sbadge approved">Approved</span>
+                        {% elif goal.approval_status == "Pending Approval" %}
+                            <span class="sbadge pending">Pending</span>
+                        {% elif goal.approval_status == "Returned For Rework" %}
+                            <span class="sbadge rework">Rework</span>
+                        {% elif goal.approval_status == "Rejected" %}
+                            <span class="sbadge rejected">Rejected</span>
+                        {% else %}
+                            <span style="font-size:11px;">{{ goal.approval_status }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if goal.progress_status == "Verified" %}
+                            <span class="status-badge verified">Verified ✅</span>
+                        {% elif goal.progress_status == "Completed" %}
+                            <span class="status-badge completed">Completed 🎯</span>
+                        {% elif goal.progress_status == "Awaiting Verification" %}
+                            <span class="status-badge awaiting">Awaiting</span>
+                        {% elif goal.progress_status == "On Track" %}
+                            <span class="status-badge ontrack">On Track 🚀</span>
+                        {% else %}
+                            <span style="font-size:11px; color:#6b6b6b;">{{ goal.progress_status }}</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <div class="audit-box">{{ goal.audit_log }}</div>
+                    </td>
+
+                    <td>
+                        <div class="action-col">
+
+                            {% if goal.approval_status != "Approved" %}
+                            <a href="/admin_approve/{{ goal.id }}"
+                               class="btn btn-green-soft btn-sm"
+                               onclick="return confirm('Force-approve this goal?')">
+                                Force Approve
+                            </a>
+                            {% endif %}
+
+                            <a href="/admin_unlock/{{ goal.id }}"
+                               class="btn btn-warning-soft btn-sm"
+                               onclick="return confirm('Unlock this goal?')">
+                                Unlock 🔓
+                            </a>
+
+                            <a href="/admin_delete/{{ goal.id }}"
+                               class="btn btn-danger-soft btn-sm"
+                               onclick="return confirm('Delete this goal permanently?')">
+                                Delete 🗑️
+                            </a>
+
+                        </div>
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+<footer>KPIFlow Enterprise &nbsp;·&nbsp; Admin Control Panel &nbsp;·&nbsp; {{ active_window }}</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+
+Chart.defaults.color       = '#6b6b6b';
+Chart.defaults.borderColor = '#2a2a2a';
+Chart.defaults.font.family = "Arial, sans-serif";
+Chart.defaults.font.size   = 11;
+
+const CRIMSON = '#dc143c';
+const RED2    = '#ff2d55';
+const GREEN   = '#22d67a';
+const RED     = '#ff4545';
+const ORANGE  = '#fb923c';
+const PURPLE  = '#38bdf8';
+const BLUE    = '#c084fc';
+const CYAN    = '#2dd4bf';
+const AMBER   = '#f59e0b';
+
+new Chart(document.getElementById('approvalChart'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Verified', 'Pending', 'Rejected', 'Rework'],
+        datasets: [{
+            data: [{{ verified_goals }}, {{ pending_approvals }}, {{ rejected_goals }}, {{ rework_goals }}],
+            backgroundColor: [GREEN, CRIMSON, RED, ORANGE],
+            borderWidth: 0, hoverOffset: 6,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false, cutout: '68%',
+        plugins: { legend: { position: 'bottom', labels: { color: '#6b6b6b', boxWidth: 10, padding: 12 } } }
+    }
+});
+
+new Chart(document.getElementById('performanceChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ employee_summary | map(attribute='employee') | list | tojson }},
+        datasets: [{
+            label: 'Avg KPI Score (%)',
+            data: {{ employee_summary | map(attribute='avg_score') | list | tojson }},
+            backgroundColor: [CRIMSON, RED2, BLUE],
+            borderRadius: 8, borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            x: { ticks: { color: '#6b6b6b' }, grid: { color: '#2a2a2a' } },
+            y: { beginAtZero: true, max: 100, ticks: { color: '#6b6b6b' }, grid: { color: '#2a2a2a' } }
+        },
+        plugins: { legend: { display: false } }
+    }
+});
+
+(function() {
+    const thrustCounts = {};
+    {% for goal in goals %}
+        thrustCounts["{{ goal.thrust_area }}"] = (thrustCounts["{{ goal.thrust_area }}"] || 0) + 1;
+    {% endfor %}
+    const labels = Object.keys(thrustCounts);
+    const data   = labels.map(k => thrustCounts[k]);
+    const colors = [CRIMSON, GREEN, PURPLE, BLUE, ORANGE, RED, CYAN, AMBER];
+    new Chart(document.getElementById('thrustChart'), {
+        type: 'polarArea',
+        data: { labels, datasets: [{ data, backgroundColor: colors.slice(0,labels.length).map(c=>c+'99'), borderColor: colors.slice(0,labels.length), borderWidth: 1 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { r: { ticks: { color: '#6b6b6b', backdropColor: 'transparent' }, grid: { color: '#2a2a2a' } } },
+            plugins: { legend: { position: 'bottom', labels: { color: '#6b6b6b', boxWidth: 9, padding: 8 } } }
+        }
+    });
+})();
+
+(function() {
+    const uomCounts = {};
+    {% for goal in goals %}
+        uomCounts["{{ goal.uom_type }}"] = (uomCounts["{{ goal.uom_type }}"] || 0) + 1;
+    {% endfor %}
+    const labels = Object.keys(uomCounts);
+    const data   = labels.map(k => uomCounts[k]);
+    const colors = [PURPLE, CYAN, BLUE, GREEN, CRIMSON, ORANGE];
+    new Chart(document.getElementById('uomChart'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors.slice(0,labels.length), borderWidth: 0, hoverOffset: 4 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '60%',
+            plugins: { legend: { position: 'bottom', labels: { color: '#6b6b6b', boxWidth: 9, padding: 8 } } }
+        }
+    });
+})();
+
+(function() {
+    const statusCounts = {};
+    {% for goal in goals %}
+        statusCounts["{{ goal.progress_status }}"] = (statusCounts["{{ goal.progress_status }}"] || 0) + 1;
+    {% endfor %}
+    const labels = Object.keys(statusCounts);
+    const data   = labels.map(k => statusCounts[k]);
+    const colorMap = { 'Verified': GREEN, 'Completed': BLUE, 'On Track': CYAN, 'Not Started': '#3a3a3a', 'Awaiting Verification': CRIMSON };
+    const colors = labels.map(l => colorMap[l] || AMBER);
+    new Chart(document.getElementById('progressChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Goals', data, backgroundColor: colors, borderRadius: 6, borderSkipped: false }] },
+        options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            scales: {
+                x: { ticks: { color: '#6b6b6b' }, grid: { color: '#2a2a2a' } },
+                y: { ticks: { color: '#6b6b6b' }, grid: { color: '#2a2a2a' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+})();
+
+new Chart(document.getElementById('weightageChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ employee_summary | map(attribute='employee') | list | tojson }},
+        datasets: [
+            {
+                label: 'Used',
+                data: {{ employee_summary | map(attribute='total_weightage') | list | tojson }},
+                backgroundColor: CRIMSON + 'cc', borderRadius: 6, borderSkipped: false,
+            },
+            {
+                label: 'Remaining',
+                data: {{ employee_summary | map(attribute='total_weightage') | list | tojson }}.map(w => Math.max(0, 100 - w)),
+                backgroundColor: '#2a2a2a', borderRadius: 6, borderSkipped: false,
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            x: { stacked: true, ticks: { color: '#6b6b6b' }, grid: { color: '#2a2a2a' } },
+            y: { stacked: true, max: 100, ticks: { color: '#6b6b6b' }, grid: { color: '#2a2a2a' } }
+        },
+        plugins: { legend: { labels: { color: '#6b6b6b', boxWidth: 10 } } }
+    }
+});
+
+let isTyping = false;
+document.querySelectorAll("input, textarea, select").forEach(el => {
+    el.addEventListener("focus", () => isTyping = true);
+    el.addEventListener("blur",  () => isTyping = false);
+});
+
+function connectSSE() {
+    const source = new EventSource("/stream");
+    source.onmessage = function(e) {
+        if (e.data === "reload" && !isTyping) window.location.reload();
+    };
+    source.onerror = function() {
+        source.close();
+        setTimeout(connectSSE, 5000);
+    };
+}
+
+connectSSE();
+
+</script>
+
+</body>
+
+</html>
